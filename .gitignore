@@ -1,0 +1,7 @@
+*.pyc
+build/
+dist/
+sco_datastore.egg-info/
+scodata/venv/
+resources/
+tests/data/
