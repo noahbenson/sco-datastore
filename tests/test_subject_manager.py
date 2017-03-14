@@ -4,8 +4,6 @@ import shutil
 import sys
 import unittest
 
-sys.path.insert(0, os.path.abspath('..'))
-
 import scodata.mongo as mongo
 import scodata.subject as subjects
 
