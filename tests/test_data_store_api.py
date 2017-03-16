@@ -226,10 +226,9 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         # State
         #
         self.assertTrue(model_run.state.is_idle)
-        model_run = self.api.experiments_predictions_update_state(
+        model_run = self.api.experiments_predictions_update_state_active(
             experiment.identifier,
-            model_run.identifier,
-            prediction.ModelRunActive()
+            model_run.identifier
         )
         # Ensure that state change has happened and is persistent
         self.assertTrue(model_run.state.is_running)

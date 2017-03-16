@@ -33,8 +33,8 @@ ARCHIVE_SUFFIXES = set(['.tar', '.tar.gz', '.tgz'])
 # ------------------------------------------------------------------------------
 
 class FileInfo(object):
-    """Information about downloadable files. this is a triple containing the
-    reference to the file, the file mime-type, and file name.
+    """Information about downloadable files. This is a triple containing the
+    reference to the file, the file mime-type, and the file name.
 
     Attributes
     ----------
@@ -105,7 +105,7 @@ class SCODataStore(object):
     # Experiments
     # --------------------------------------------------------------------------
 
-    def experiments_create(self, subject, images, properties):
+    def experiments_create(self, subject_id, image_group_id, properties):
         """Create an experiment object with subject, and image group. Objects
         are referenced by their unique identifiers. The API ensure that at time
         of creation all referenced objects exist. Referential consistency,
@@ -118,9 +118,9 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        subject : string
+        subject_id : string
             Unique identifier of subject
-        images : string
+        image_group_id : string
             Unique identifier of image group
         properties : Dictionary
             Set of experiment properties. Is required to contain at least the
@@ -132,21 +132,21 @@ class SCODataStore(object):
             Handle for created experiment object in database
         """
         # Ensure that reference subject exists
-        if self.subjects_get(subject) is None:
-            raise ValueError('unknown subject: ' + subject)
+        if self.subjects_get(subject_id) is None:
+            raise ValueError('unknown subject: ' + subject_id)
         # Ensure that referenced image group exists
-        if self.image_groups_get(images) is None:
-            raise ValueError('unknown image group: ' + images)
-        return self.experiments.create_object(subject, images, properties)
+        if self.image_groups_get(image_group_id) is None:
+            raise ValueError('unknown image group: ' + image_group_id)
+        return self.experiments.create_object(subject_id, image_group_id, properties)
 
-    def experiments_delete(self, identifier):
+    def experiments_delete(self, experiment_id):
         """Delete experiment with given identifier in the database. At the
         moment, this has no impact on other database objects that reference the
         experiment.
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
 
         Returns
@@ -154,15 +154,15 @@ class SCODataStore(object):
         ExperimentHandle
             Handle for deleted experiment or None if identifier is unknown
         """
-        return self.experiments.delete_object(identifier)
+        return self.experiments.delete_object(experiment_id)
 
-    def experiments_fmri_create(self, identifier, filename):
+    def experiments_fmri_create(self, experiment_id, filename):
         """Create functional data object from given file and associate the
         object with the specified experiment.
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
         filename : File-type object
             Functional data file
@@ -175,7 +175,7 @@ class SCODataStore(object):
         """
         # Get the experiment to ensure that it exist before we even create the
         # functional data object
-        experiment = self.experiments_get(identifier)
+        experiment = self.experiments_get(experiment_id)
         if experiment is None:
             return None
         # Create functional data object from given file
@@ -183,7 +183,7 @@ class SCODataStore(object):
         # Update experiment to associate it with created fMRI object. Assign
         # result to experiment. Should the experiment have been deleted in
         # parallel the result will be None
-        experiment = self.experiments.update_fmri_data(identifier, fmri.identifier)
+        experiment = self.experiments.update_fmri_data(experiment_id, fmri.identifier)
         if experiment is None:
             # Delete fMRI object's data directory
             shutil.rmtree(fmri.directory)
@@ -191,14 +191,14 @@ class SCODataStore(object):
             self.funcdata.delete_object(fmri.identifier, erase=True)
             return None
         else:
-            return funcdata.FMRIDataHandle(fmri, identifier)
+            return funcdata.FMRIDataHandle(fmri, experiment_id)
 
-    def experiments_fmri_delete(self, identifier):
+    def experiments_fmri_delete(self, experiment_id):
         """Delete fMRI data object associated with given experiment.
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
 
         Returns
@@ -208,7 +208,7 @@ class SCODataStore(object):
             has no fMRI data object associated with it
         """
         # Get experiment fMRI to ensure that it exists
-        fmri = self.experiments_fmri_get(identifier)
+        fmri = self.experiments_fmri_get(experiment_id)
         if fmri is None:
             return None
         # Delete reference fMRI data object and set reference in experiment to
@@ -216,15 +216,15 @@ class SCODataStore(object):
         # Alternatively, throw an exception to signal invalid database state.
         fmri = self.funcdata.delete_object(fmri.identifier)
         if not fmri is None:
-            self.experiments.update_fmri_data(identifier, None)
-        return funcdata.FMRIDataHandle(fmri, identifier)
+            self.experiments.update_fmri_data(experiment_id, None)
+        return funcdata.FMRIDataHandle(fmri, experiment_id)
 
-    def experiments_fmri_download(self, identifier):
+    def experiments_fmri_download(self, experiment_id):
         """Download the fMRI data file associated with given experiment.
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
 
         Returns
@@ -234,7 +234,7 @@ class SCODataStore(object):
             unknown or has no fMRI data associated with it
         """
         # Get experiment fMRI to ensure that it exists
-        fmri = self.experiments_fmri_get(identifier)
+        fmri = self.experiments_fmri_get(experiment_id)
         if fmri is None:
             return None
         # Return information about fmRI data file
@@ -244,12 +244,12 @@ class SCODataStore(object):
             fmri.properties[datastore.PROPERTY_FILENAME]
         )
 
-    def experiments_fmri_get(self, identifier):
+    def experiments_fmri_get(self, experiment_id):
         """Get fMRI data object that is associated with the given experiment.
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             unique experiment identifier
 
         Returns
@@ -259,7 +259,7 @@ class SCODataStore(object):
             or (b) has no fMRI data object associated with it.
         """
         # Get experiment to ensure that it exists
-        experiment = self.experiments_get(identifier)
+        experiment = self.experiments_get(experiment_id)
         if experiment is None:
             return None
         # Check if experiment has fMRI data
@@ -268,9 +268,9 @@ class SCODataStore(object):
         # Get functional data object handle from database.
         func_data = self.funcdata.get_object(experiment.fmri_data)
         # Create fMRI handle from functional data handle
-        return funcdata.FMRIDataHandle(func_data, identifier)
+        return funcdata.FMRIDataHandle(func_data, experiment_id)
 
-    def experiments_fmri_upsert_property(self, identifier, properties):
+    def experiments_fmri_upsert_property(self, experiment_id, properties):
         """Upsert property of fMRI data object associated with given experiment.
 
         Raises ValueError if given property dictionary results in an illegal
@@ -278,7 +278,7 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
         properties : Dictionary()
             Dictionary of property names and their new values.
@@ -290,18 +290,18 @@ class SCODataStore(object):
         """
         # Get experiment fMRI to ensure that it exists. Needed to get fMRI
         # data object identifier for given experiment identifier
-        fmri = self.experiments_fmri_get(identifier)
+        fmri = self.experiments_fmri_get(experiment_id)
         if fmri is None:
             return None
         # Update properties for fMRI object using the object identifier
         return self.funcdata.upsert_object_property(fmri.identifier, properties)
 
-    def experiments_get(self, identifier):
+    def experiments_get(self, experiment_id):
         """Retrieve experiment with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
 
         Returns
@@ -309,7 +309,7 @@ class SCODataStore(object):
         ExperimentHandle
             Hadle for experiment object or None if identifier is unknown.
         """
-        return self.experiments.get_object(identifier)
+        return self.experiments.get_object(experiment_id)
 
     def experiments_list(self, limit=-1, offset=-1):
         """Retrieve list of all experiments in the data store.
@@ -328,12 +328,12 @@ class SCODataStore(object):
         """
         return self.experiments.list_objects(limit=limit, offset=offset)
 
-    def experiments_predictions_create(self, experiment, name, arguments=None, properties=None):
+    def experiments_predictions_create(self, experiment_id, name, arguments=None, properties=None):
         """Create new model run for given experiment.
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
         name : string
             User-provided name for the model run
@@ -348,25 +348,25 @@ class SCODataStore(object):
             Handle for created model run or None if experiment is unknown
         """
         # Get experiment to ensure that it exists
-        if self.experiments_get(experiment) is None:
+        if self.experiments_get(experiment_id) is None:
             return None
         # Return created model run
         return self.predictions.create_object(
             name,
-            experiment,
+            experiment_id,
             arguments=arguments,
             properties=properties
         )
 
-    def experiments_predictions_delete(self, experiment, prediction, erase=False):
+    def experiments_predictions_delete(self, experiment_id, run_id, erase=False):
         """Delete given prediction for experiment.
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
-        prediction : string
-            Unique prediction identifier
+        run_id : string
+            Unique model run identifier
         erase : Boolean, optional
             If true, the model run will be deleted from the database. Used in
             case the sco backend could not start a model run after the record
@@ -378,22 +378,22 @@ class SCODataStore(object):
             Handle for deleted model run or None if unknown
         """
         # Get model run to ensure that it exists
-        model_run = self.experiments_predictions_get(experiment, prediction)
+        model_run = self.experiments_predictions_get(experiment_id, run_id)
         if model_run is None:
             return None
         # Return resutl of deleting model run. Could also raise exception in
         # case of invalid database state (i.e., prediction does not exist)
         return self.predictions.delete_object(model_run.identifier, erase=erase)
 
-    def experiments_predictions_download(self, experiment, prediction):
+    def experiments_predictions_download(self, experiment_id, run_id):
         """Donwload the results of a prediction for a given experiment.
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
-        prediction : string
-            Unique prediction identifier
+        run_id : string
+            Unique model run identifier
 
         Returns
         -------
@@ -402,7 +402,7 @@ class SCODataStore(object):
             prediction is unknown or has no result
         """
         # Get model run to ensure that it exists
-        model_run = self.experiments_predictions_get(experiment, prediction)
+        model_run = self.experiments_predictions_get(experiment_id, run_id)
         if model_run is None:
             return None
         # Make sure the run has completed successfully
@@ -420,15 +420,15 @@ class SCODataStore(object):
             funcdata.properties[datastore.PROPERTY_FILENAME]
         )
 
-    def experiments_predictions_get(self, experiment, prediction):
+    def experiments_predictions_get(self, experiment_id, run_id):
         """Get prediction object with given identifier for given experiment.
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
-        prediction : string
-            Unique prediction identifier
+        run_id : string
+            Unique model run identifier
 
         Returns
         -------
@@ -437,24 +437,24 @@ class SCODataStore(object):
             unknown
         """
         # Get experiment to ensure that it exists
-        if self.experiments_get(experiment) is None:
+        if self.experiments_get(experiment_id) is None:
             return None
         # Get predition handle to ensure that it exists
-        model_run = self.predictions.get_object(prediction)
+        model_run = self.predictions.get_object(run_id)
         if model_run is None:
             return None
         # Perform additional check that prediction is for given experiment
-        if experiment != model_run.experiment:
+        if experiment_id != model_run.experiment:
             return None
         # Return model run object
         return model_run
 
-    def experiments_predictions_list(self, experiment, limit=-1, offset=-1):
+    def experiments_predictions_list(self, experiment_id, limit=-1, offset=-1):
         """List of all predictions for given experiment.
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
         limit : int
             Limit number of results in returned object listing
@@ -467,26 +467,24 @@ class SCODataStore(object):
             Listing of model run handles
         """
         # Get experiment to ensure that it exists
-        if self.experiments_get(experiment) is None:
+        if self.experiments_get(experiment_id) is None:
             return None
         # Return list of predictions
         return self.predictions.list_objects(
-            query={'experiment' : experiment},
+            query={'experiment' : experiment_id},
             limit=limit,
             offset=offset
         )
 
-    def experiments_predictions_update_state(self, experiment, prediction, state):
-        """Update state of given prediction.
+    def experiments_predictions_update_state_active(self, experiment_id, run_id):
+        """Update state of given prediction to active.
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
-        prediction : string
-            Unique prediction identifier
-        state : ModelRunState
-            New model run state
+        run_id : string
+            Unique model run identifier
 
         Returns
         -------
@@ -494,13 +492,74 @@ class SCODataStore(object):
             Handle for updated model run or None is prediction is undefined
         """
         # Get prediction to ensure that it exists
-        model_run = self.experiments_predictions_get(experiment, prediction)
+        model_run = self.experiments_predictions_get(experiment_id, run_id)
         if model_run is None:
             return None
         # Update predition state
-        return self.predictions.update_state(prediction, state)
+        return self.predictions.update_state(
+            run_id,
+            prediction.ModelRunActive()
+        )
 
-    def experiments_predictions_upsert_property(self, experiment, prediction, properties):
+    def experiments_predictions_update_state_error(self, experiment_id, run_id, errors):
+        """Update state of given prediction to failed. Set error messages that
+        where generated by the failed run execution.
+
+        Parameters
+        ----------
+        experiment_id : string
+            Unique experiment identifier
+        run_id : string
+            Unique model run identifier
+        errors : List(string)
+            List of error messages
+
+        Returns
+        -------
+        ModelRunHandle
+            Handle for updated model run or None is prediction is undefined
+        """
+        # Get prediction to ensure that it exists
+        model_run = self.experiments_predictions_get(experiment_id, run_id)
+        if model_run is None:
+            return None
+        # Update predition state
+        return self.predictions.update_state(
+            run_id,
+            prediction.ModelRunFailed(errors)
+        )
+
+    def experiments_predictions_update_state_success(self, experiment_id, run_id, result_file):
+        """Update state of given prediction to success. Create a function data
+        resource for the given result file and associate it with the model run.
+
+        Parameters
+        ----------
+        experiment_id : string
+            Unique experiment identifier
+        run_id : string
+            Unique model run identifier
+        result_file : string
+            Path to model run result file
+
+        Returns
+        -------
+        ModelRunHandle
+            Handle for updated model run or None is prediction is undefined
+        """
+        # Get prediction to ensure that it exists
+        model_run = self.experiments_predictions_get(experiment_id, run_id)
+        if model_run is None:
+            return None
+        # Create new resource for model run result
+        funcdata = self.funcdata.create_object(result_file)
+        # Update predition state
+        return self.predictions.update_state(
+            run_id,
+            prediction.ModelRunSuccess(funcdata.identifier)
+        )
+
+    def experiments_predictions_upsert_property(self, experiment_id, run_id, properties):
         """Upsert property of a prodiction for an experiment.
 
         Raises ValueError if given property dictionary results in an illegal
@@ -508,10 +567,10 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        experiment : string
+        experiment_id : string
             Unique experiment identifier
-        prediction : string
-            Unique prediction identifier
+        run_id : string
+            Unique model run identifier
         properties : Dictionary()
             Dictionary of property names and their new values.
 
@@ -522,12 +581,12 @@ class SCODataStore(object):
         """
         # Get predition to ensure that it exists. Ensures that the combination
         # of experiment and prediction identifier is valid.
-        if self.experiments_predictions_get(experiment, prediction) is None:
+        if self.experiments_predictions_get(experiment_id, run_id) is None:
             return None
         # Return result of upsert for identifier model run
-        return self.predictions.upsert_object_property(prediction, properties)
+        return self.predictions.upsert_object_property(run_id, properties)
 
-    def experiments_upsert_property(self, identifier, properties):
+    def experiments_upsert_property(self, experiment_id, properties):
         """Upsert property of given experiment.
 
         Raises ValueError if given property dictionary results in an illegal
@@ -535,7 +594,7 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        identifier : string
+        experiment_id : string
             Unique experiment identifier
         properties : Dictionary()
             Dictionary of property names and their new values.
@@ -545,7 +604,7 @@ class SCODataStore(object):
         ExperimentHandle
             Handle for updated object of None if object doesn't exist
         """
-        return self.experiments.upsert_object_property(identifier, properties)
+        return self.experiments.upsert_object_property(experiment_id, properties)
 
     # --------------------------------------------------------------------------
     # Images
@@ -611,13 +670,13 @@ class SCODataStore(object):
             # Not a valid file suffix
             raise ValueError('invalid file suffix: ' + os.path.basename(os.path.normpath(filename)))
 
-    def image_files_delete(self, identifier):
+    def image_files_delete(self, image_id):
         """Delete image object with given identifier. At the moment, this has no
         impact on objects referencing the image.
 
         Parameters
         ----------
-        identifier : string
+        image_id : string
             Unique image identifier
 
         Returns
@@ -625,14 +684,14 @@ class SCODataStore(object):
         ImageHandle
             Handle for deleted image or None if identifier is unknown
         """
-        return self.images.delete_object(identifier)
+        return self.images.delete_object(image_id)
 
-    def image_files_download(self, identifier):
+    def image_files_download(self, image_id):
         """Get data file for image with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        image_id : string
             Unique image identifier
 
         Returns
@@ -642,7 +701,7 @@ class SCODataStore(object):
             is unknown
         """
         # Retrieve image to ensure that it exist
-        img = self.image_files_get(identifier)
+        img = self.image_files_get(image_id)
         if img is None:
             # Return None if image is unknown
             return None
@@ -654,12 +713,12 @@ class SCODataStore(object):
                 img.properties[datastore.PROPERTY_FILENAME]
             )
 
-    def image_files_get(self, identifier):
+    def image_files_get(self, image_id):
         """Get image with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        image_id : string
             Unique image object identifier
 
         Returns
@@ -667,7 +726,7 @@ class SCODataStore(object):
         ImageHandle
             Handle for image object or None if identifier is unknown
         """
-        return self.images.get_object(identifier)
+        return self.images.get_object(image_id)
 
     def image_files_list(self, limit=-1, offset=-1):
         """Retrieve list of all images in the data store.
@@ -686,7 +745,7 @@ class SCODataStore(object):
         """
         return self.images.list_objects(limit=limit, offset=offset)
 
-    def image_files_upsert_property(self, identifier, properties):
+    def image_files_upsert_property(self, image_id, properties):
         """Upsert property of given image.
 
         Raises ValueError if given property dictionary results in an illegal
@@ -694,7 +753,7 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        identifier : string
+        image_id : string
             Unique image object identifier
         properties : Dictionary()
             Dictionary of property names and their new values.
@@ -704,30 +763,30 @@ class SCODataStore(object):
         ImageHandle
             Handle for updated object of None if object doesn't exist
         """
-        return self.images.upsert_object_property(identifier, properties)
+        return self.images.upsert_object_property(image_id, properties)
 
-    def image_groups_delete(self, identifier):
+    def image_groups_delete(self, image_group_id):
         """Delete image group object with given identifier. At the moment, this
         has no impact on objects referencing the image group.
 
         Parameters
         ----------
-        identifier : string
+        image_group_id : string
             Unique image group identifier
 
         Returns
         -------
         ImageGroupHandle
-            Handle for deleted image group or None if identifier is unknown
+            Handle for deleted image group or None if image_group_id is unknown
         """
-        return self.image_groups.delete_object(identifier)
+        return self.image_groups.delete_object(image_group_id)
 
-    def image_groups_download(self, identifier):
+    def image_groups_download(self, image_group_id):
         """Get data file for image group with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        image_group_id : string
             Unique image group identifier
 
         Returns
@@ -737,7 +796,7 @@ class SCODataStore(object):
             identifier is unknown
         """
         # Retrieve image group to ensure that it exist
-        img_grp = self.image_groups_get(identifier)
+        img_grp = self.image_groups_get(image_group_id)
         if img_grp is None:
             # Return None if image group is unknown
             return None
@@ -749,12 +808,12 @@ class SCODataStore(object):
                 img_grp.properties[datastore.PROPERTY_FILENAME]
             )
 
-    def image_groups_get(self, identifier):
+    def image_groups_get(self, image_group_id):
         """Get image group with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        image_group_id : string
             Unique image group object identifier
 
         Returns
@@ -762,14 +821,14 @@ class SCODataStore(object):
         ImageGroupHandle
             Handle for image group object or None if identifier is unknown
         """
-        return self.image_groups.get_object(identifier)
+        return self.image_groups.get_object(image_group_id)
 
-    def image_group_images_list(self, identifier, limit=-1, offset=-1):
+    def image_group_images_list(self, image_group_id, limit=-1, offset=-1):
         """List images in the given image group.
 
         Parameters
         ----------
-        identifier : string
+        image_group_id : string
             Unique image group object identifier
         limit : int
             Limit number of results in returned object listing
@@ -782,7 +841,7 @@ class SCODataStore(object):
             Listing of group images
         """
         return self.image_groups.list_images(
-            identifier,
+            image_group_id,
             limit=limit,
             offset=offset
         )
@@ -804,14 +863,14 @@ class SCODataStore(object):
         """
         return self.image_groups.list_objects(limit=limit, offset=offset)
 
-    def image_groups_update_options(self, identifier, options):
+    def image_groups_update_options(self, image_group_id, options):
         """Update set of typed options associated with a given image group.
 
         Raises ValueError if invalid options are provided.
 
         Parameters
         ----------
-        identifier : string
+        image_group_id : string
             Unique image group identifier
         options : List(attribute.Attribute)
             List of attribute instances
@@ -821,9 +880,9 @@ class SCODataStore(object):
         ImageGroupHandle
             Handle for updated image group or None if identifier is unknown.
         """
-        return self.image_groups.update_object_options(identifier, options)
+        return self.image_groups.update_object_options(image_group_id, options)
 
-    def image_groups_upsert_property(self, identifier, properties):
+    def image_groups_upsert_property(self, image_group_id, properties):
         """Upsert property of given image group.
 
         Raises ValueError if given property dictionary results in an illegal
@@ -831,7 +890,7 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        identifier : string
+        image_group_id : string
             Unique image group object identifier
         properties : Dictionary()
             Dictionary of property names and their new values.
@@ -841,7 +900,7 @@ class SCODataStore(object):
         ImageGroupHandle
             Handle for updated object of None if object doesn't exist
         """
-        return self.image_groups.upsert_object_property(identifier, properties)
+        return self.image_groups.upsert_object_property(image_group_id, properties)
 
     # --------------------------------------------------------------------------
     # Subjects
@@ -870,13 +929,13 @@ class SCODataStore(object):
         # subject archive
         return self.subjects.upload_file(filename)
 
-    def subjects_delete(self, identifier):
+    def subjects_delete(self, subject_id):
         """Delete subject with given identifier in the database. At the moment,
         this has no impact on other database objects that reference the subject.
 
         Parameters
         ----------
-        identifier : string
+        subject_id : string
             Unique subject identifier
 
         Returns
@@ -884,14 +943,14 @@ class SCODataStore(object):
         SubjectHandle
             Handle for deleted subject or None if identifier is unknown
         """
-        return self.subjects.delete_object(identifier)
+        return self.subjects.delete_object(subject_id)
 
-    def subjects_download(self, identifier):
+    def subjects_download(self, subject_id):
         """Get data file for subject with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        subject_id : string
             Unique subject identifier
 
         Returns
@@ -901,7 +960,7 @@ class SCODataStore(object):
             is unknown
         """
         # Retrieve subject to ensure that it exist
-        subject = self.subjects_get(identifier)
+        subject = self.subjects_get(subject_id)
         if subject is None:
             # Return None if subject is unknown
             return None
@@ -913,12 +972,12 @@ class SCODataStore(object):
                 subject.properties[datastore.PROPERTY_FILENAME]
             )
 
-    def subjects_get(self, identifier):
+    def subjects_get(self, subject_id):
         """Retrieve subject with given identifier.
 
         Parameters
         ----------
-        identifier : string
+        subject_id : string
             Unique subject identifier
 
         Returns
@@ -926,7 +985,7 @@ class SCODataStore(object):
         SubjectHandle
             Subject data object handle or None if identifier is unknown.
         """
-        return self.subjects.get_object(identifier)
+        return self.subjects.get_object(subject_id)
 
     def subjects_list(self, limit=-1, offset=-1):
         """Retrieve list of all subjects in the data store.
@@ -945,7 +1004,7 @@ class SCODataStore(object):
         """
         return self.subjects.list_objects(limit=limit, offset=offset)
 
-    def subjects_upsert_property(self, identifier, properties):
+    def subjects_upsert_property(self, subject_id, properties):
         """Upsert property of given subject.
 
         Raises ValueError if given property dictionary results in an illegal
@@ -953,7 +1012,7 @@ class SCODataStore(object):
 
         Parameters
         ----------
-        identifier : string
+        subject_id : string
             Unique subject identifier
         properties : Dictionary()
             Dictionary of property names and their new values.
@@ -963,7 +1022,7 @@ class SCODataStore(object):
         SubjectHandle
             Handle for updated object of None if object doesn't exist
         """
-        return self.subjects.upsert_object_property(identifier, properties)
+        return self.subjects.upsert_object_property(subject_id, properties)
 
 # ------------------------------------------------------------------------------
 #

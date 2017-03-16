@@ -487,7 +487,12 @@ class DefaultModelRunManager(datastore.MongoDBStore):
             if not model_run.state.is_idle:
                 raise ValueError('invalid state change: finished run cannot start again')
             model_run.schedule[RUN_STARTED] = timestamp
-        elif state.is_failed or state.is_success:
+        elif state.is_failed:
+            # Current state is required to be RUNNING
+            if not (model_run.state.is_running or model_run.state.is_idle):
+                raise ValueError('invalid state change: cannot fail finished run')
+            model_run.schedule[RUN_FINISHED] = timestamp
+        elif state.is_success:
             # Current state is required to be RUNNING
             if not model_run.state.is_running:
                 raise ValueError('invalid state change: cannot finish inactive run')

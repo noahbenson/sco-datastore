@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='sco-datastore',
-    version='0.1.0',
+    version='0.2.0',
     description='Library to manipulate objects in the Standard Cortical Observer Data Store',
     keywords='neuroscience vision cortex ',
     author='Heiko Mueller',
