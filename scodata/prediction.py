@@ -310,11 +310,6 @@ class DefaultModelRunManager(datastore.MongoDBStore):
     """Manager for model runs and their outputs.
 
     This is a default implentation that uses MongoDB as storage backend.
-
-    Attributes
-    ----------
-    parameters : list(attribute.AttributeDefinition)
-        List of parameters that can be passed to the model when running it.
     """
     def __init__(self, mongo_collection):
         """Initialize the MongoDB collection and base directory where to store
@@ -329,23 +324,6 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         super(DefaultModelRunManager, self).__init__(
             mongo_collection,
             [datastore.PROPERTY_STATE])
-        # Initialize the definition of image group options attributes
-        self.parameters = {
-            'gabor_orientations' : attribute.AttributeDefinition(
-                'gabor_orientations',
-                attribute.IntegerType(),
-                default_value=8
-            ),
-            'max_eccentricity' : attribute.AttributeDefinition(
-                'max_eccentricity',
-                attribute.FloatType(),
-                default_value=12
-            ),
-            'normalized_pixels_per_degree' : attribute.AttributeDefinition(
-                'normalized_pixels_per_degree',
-                attribute.FloatType()
-            )
-        }
 
     def create_object(self, name, experiment, arguments=None, properties=None):
         """Create a model run object with the given list of arguments. The
@@ -380,14 +358,8 @@ class DefaultModelRunManager(datastore.MongoDBStore):
                 if not prop in run_properties:
                     run_properties[prop] = properties[prop]
         # If argument list is not given then the initial set of arguments is
-        # given by those parameter for which a default value is defined. Use
-        # default values for those arguments in the definition that are not
-        # present in a given arguments list.
-        run_arguments = attribute.get_default_attributes(self.parameters)
-        if not arguments is None:
-            args = attribute.get_and_validate_attributes(arguments, self.parameters)
-            for arg_key in args:
-                run_arguments[arg_key] = args[arg_key]
+        # empty. Default values will be used when the model is run.
+        run_arguments = attribute.to_dict(arguments)
         # Create the image group object and store it in the database before
         # returning it.
         obj = ModelRunHandle(

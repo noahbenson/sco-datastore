@@ -356,30 +356,6 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         self.immutable_properties.add(PROPERTY_GROUPSIZE)
         # Initialize image manager reference
         self.image_manager = image_manager
-        # Initialize the definition of image group options attributes
-        self.options_def = {
-            'stimulus_pixels_per_degree' : attribute.AttributeDefinition(
-                'stimulus_pixels_per_degree',
-                attribute.FloatType()
-            ),
-            'stimulus_edge_value' : attribute.AttributeDefinition(
-                'stimulus_edge_value',
-                attribute.FloatType(),
-                default_value=0.5
-            ),
-            'stimulus_aperture_edge_value' : attribute.AttributeDefinition(
-                'stimulus_aperture_edge_value',
-                attribute.FloatType()
-            ),
-            'normalized_stimulus_aperture' : attribute.AttributeDefinition(
-                'normalized_stimulus_aperture',
-                attribute.FloatType()
-            ),
-            'stimulus_gamma' : attribute.AttributeDefinition(
-                'stimulus_gamma',
-                attribute.ArrayType(attribute.FloatType())
-            )
-        }
 
     def create_object(self, name, images, filename, options=None):
         """Create an image group object with the given list of images. The
@@ -423,13 +399,10 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             os.makedirs(directory)
         # Move original file to object directory
         shutil.copyfile(filename, os.path.join(directory, prop_filename))
-        # If no options are given then the initial set of options is given by
-        # those options in the attribute definition list for which default values
-        # are defined.
-        if options is None:
-            opts = attribute.get_default_attributes(self.options_def)
-        else:
-            opts = attribute.get_and_validate_attributes(options, self.options_def)
+        # Get dictionary of given options. If none are given opts will be an
+        # empty dictionary. If duplicate attribute names are present an
+        # exception will be raised.
+        opts = attribute.to_dict(options)
         # Create the image group object and store it in the database before
         # returning it.
         obj = ImageGroupHandle(
@@ -592,8 +565,10 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         img_group = self.get_object(identifier)
         if img_group is None:
             return None
-        # Replace existing object in database with object having given options
-        img_group.options = attribute.get_and_validate_attributes(options, self.options_def)
+        # Replace existing object in database with object having given options.
+        # Raises an exception of attributes with duplicate names appear in the
+        # list.
+        img_group.options = attribute.to_dict(options)
         self.replace_object(img_group)
         # Return image group handle
         return img_group
