@@ -179,24 +179,21 @@ def parse_dict(value):
 
     Returns
     List
-        List of key,value elements.
+        Dictionary of integer,float pairs.
     """
     # Remove optional {}
     if value.startswith('{') and value.endswith('}'):
         text = value[1:-1].strip()
     else:
         text = value.strip()
-    # Result is a list
-    result = []
+    # Result is a dictionary
+    result = {}
     # Convert each pair of <int>:<float> into a key, value pair.
     for val in text.split(','):
         tokens = val.split(':')
         if len(tokens) != 2:
             raise ValueError('invalid entry in dictionary: ' + val)
-        result.append({
-            'key' : int(tokens[0].strip()),
-            'value' : float(tokens[1].strip())
-        })
+        result[str(int(tokens[0].strip()))] = float(tokens[1].strip())
     return result
 
 
