@@ -113,9 +113,9 @@ def parse_value(value, para_def):
     # Get the type name from the definition
     type_name = para_def['type']['name']
     if type_name == 'int':
-        return int(value.strip())
+        return int(value)
     elif type_name == 'float':
-        return float(value.strip())
+        return float(value)
     elif type_name == 'enum':
         return value
     elif type_name == 'dict':
@@ -159,7 +159,7 @@ def parse_array(value):
             pos += 2
     else:
         for val in text.split(','):
-            result.append(float(val.strip()))
+            result.append(float(val))
     # Ensure that the result contains at least two elements
     if len(result) < 2:
         raise ValueError('invalid number of elements in list: ' + str(len(result)))
