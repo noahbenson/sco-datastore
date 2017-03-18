@@ -29,6 +29,8 @@ PROPERTY_FILESIZE = 'filesize'
 PROPERTY_FILETYPE = 'filetype'
 # Default Mime-type of the image (based on the file name suffix)
 PROPERTY_MIMETYPE = 'mimetype'
+# Model identifier
+PROPERTY_MODEL = 'model'
 # Descriptive name (mandatory for all database objects)
 PROPERTY_NAME = 'name'
 # Object state

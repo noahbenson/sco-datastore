@@ -119,7 +119,7 @@ def parse_value(value, para_def):
     elif type_name == 'enum':
         return value
     elif type_name == 'dict':
-        raise ValueError('not implemented yet.')
+        return parse_dict(value)
     elif type_name == 'array':
         return parse_array(value)
 
@@ -140,7 +140,6 @@ def parse_array(value):
         List of floats of of float tuples.
     """
     # Remove optional []
-    print value
     if value.startswith('[') and value.endswith(']'):
         text = value[1:-1].strip()
     else:
@@ -164,6 +163,40 @@ def parse_array(value):
     # Ensure that the result contains at least two elements
     if len(result) < 2:
         raise ValueError('invalid number of elements in list: ' + str(len(result)))
+    return result
+
+
+def parse_dict(value):
+    """Parse a string value that is expected to be a list of integer:float
+    pairs.
+
+    Raises ValueError is value is not of expected format.
+
+    Parameters
+    ----------
+    value : string
+        String representation of the dictionary
+
+    Returns
+    List
+        List of key,value elements.
+    """
+    # Remove optional {}
+    if value.startswith('{') and value.endswith('}'):
+        text = value[1:-1].strip()
+    else:
+        text = value.strip()
+    # Result is a list
+    result = []
+    # Convert each pair of <int>:<float> into a key, value pair.
+    for val in text.split(','):
+        tokens = val.split(':')
+        if len(tokens) != 2:
+            raise ValueError('invalid entry in dictionary: ' + val)
+        result.append({
+            'key' : int(tokens[0].strip()),
+            'value' : float(tokens[1].strip())
+        })
     return result
 
 

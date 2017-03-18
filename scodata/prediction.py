@@ -237,6 +237,8 @@ class ModelRunHandle(datastore.ObjectHandle):
         Dictionary of typed attributes defining the image group options
     experiment : string
         Unique experiment object identifier
+    model_id : string
+        Unique model identifier
     schedule : Dictionary(string)
         Timestamps for model run state changes
     state: ModelRunState
@@ -248,6 +250,7 @@ class ModelRunHandle(datastore.ObjectHandle):
         properties,
         state,
         experiment,
+        model_id,
         arguments,
         schedule=None,
         timestamp=None,
@@ -264,6 +267,8 @@ class ModelRunHandle(datastore.ObjectHandle):
             Model run state object
         experiment : string
             Unique experiment object identifier
+        model_id : string
+            Unique model identifier
         arguments: Dictionary(attribute.Attribute)
             Dictionary of typed attributes defining the model run arguments
         schedule : Dictionary(string), optional
@@ -284,6 +289,7 @@ class ModelRunHandle(datastore.ObjectHandle):
         # Initialize class specific Attributes
         self.state = state
         self.experiment = experiment
+        self.model_id = model_id
         self.arguments = arguments
         # Set state change information. Only allowed to be missing at run
         # creation, i.e., if timestamp is none.
@@ -323,9 +329,9 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         # Initialize the super class
         super(DefaultModelRunManager, self).__init__(
             mongo_collection,
-            [datastore.PROPERTY_STATE])
+            [datastore.PROPERTY_STATE, datastore.PROPERTY_MODEL])
 
-    def create_object(self, name, experiment, arguments=None, properties=None):
+    def create_object(self, name, experiment_id, model_id, arguments=None, properties=None):
         """Create a model run object with the given list of arguments. The
         initial state of the object is RUNNING.
 
@@ -333,8 +339,10 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         ----------
         name : string
             User-provided name for the model run
-        experiment : string
+        experiment_id : string
             Unique identifier of associated experiment object
+        model_id : string
+            Unique model identifier
         arguments : list(attribute.Attribute), optional
             List of attribute instances
         properties : Dictionary, optional
@@ -351,7 +359,8 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         # Create the initial set of properties.
         run_properties = {
             datastore.PROPERTY_NAME: name,
-            datastore.PROPERTY_STATE: str(state)
+            datastore.PROPERTY_STATE: str(state),
+            datastore.PROPERTY_MODEL: model_id
         }
         if not properties is None:
             for prop in properties:
@@ -366,7 +375,8 @@ class DefaultModelRunManager(datastore.MongoDBStore):
             identifier,
             run_properties,
             state,
-            experiment,
+            experiment_id,
+            model_id,
             run_arguments
         )
         self.insert_object(obj)
@@ -393,6 +403,7 @@ class DefaultModelRunManager(datastore.MongoDBStore):
             document['properties'],
             ModelRunState.from_json(document['state']),
             document['experiment'],
+            document['model'],
             attribute.attributes_from_json(document['arguments']),
             schedule=document['schedule'],
             timestamp=datetime.datetime.strptime(
@@ -423,6 +434,8 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         json_obj['schedule'] = model_run.schedule
         # Add experiment information
         json_obj['experiment'] = model_run.experiment
+        # Add model information
+        json_obj['model'] = model_run.model_id
         # Transform dictionary of attributes into list of key-value pairs.
         json_obj['arguments'] = attribute.attributes_to_json(model_run.arguments)
         return json_obj
