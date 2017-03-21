@@ -18,6 +18,10 @@
 * Add constraints for funtional data uploads
 * Provide access to files in uploaded functional data archives
 
-### 0.4.1 - 2017-03-21
+### 0.4.1 - 2017-03-20
 
 * Bug fix for download experiment fMRI data
+
+### 0.4.2 - 2017-03-21
+
+* Bug fix for download prediction result data

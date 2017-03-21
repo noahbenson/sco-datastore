@@ -252,7 +252,7 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
         prop_name = prop_filename
         # Based on the valid list of suffixes the file is either a tar-file
         # or a zipped tar-file.
-        prop_mime = 'application/x-tar' if filename.endswith('.tar') else 'application/gzip'
+        prop_mime = 'application/x-tar' if filename.endswith('.tar') else 'application/x-gzip'
         for suffix in ['.tar', '.tgz', '.tar.gz']:
             if prop_name.endswith(suffix):
                 prop_name = prop_name[:-len(suffix)]

@@ -418,7 +418,7 @@ class SCODataStore(object):
             return None
         # Return information about the result file
         return FileInfo(
-            funcdata.data_file,
+            funcdata.upload_file,
             funcdata.properties[datastore.PROPERTY_MIMETYPE],
             funcdata.properties[datastore.PROPERTY_FILENAME]
         )

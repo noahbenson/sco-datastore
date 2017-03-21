@@ -385,7 +385,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         identifier = str(uuid.uuid4())
         # Create the initial set of properties.
         prop_filename = os.path.basename(os.path.normpath(filename))
-        prop_mime = 'application/x-tar' if filename.endswith('.tar') else 'application/gzip'
+        prop_mime = 'application/x-tar' if filename.endswith('.tar') else 'application/x-gzip'
         properties = {
             datastore.PROPERTY_NAME: name,
             datastore.PROPERTY_FILENAME : prop_filename,

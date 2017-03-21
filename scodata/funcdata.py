@@ -208,7 +208,7 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         if prop_name.endswith('.tar'):
             prop_mime = 'application/x-tar'
         elif prop_name.endswith('.tar.gz') or prop_name.endswith('.tgz'):
-            prop_mime =  'application/gzip'
+            prop_mime =  'application/x-gzip'
         else:
             raise ValueError('unsupported file type: ' + prop_name)
         # Create a new object identifier.
