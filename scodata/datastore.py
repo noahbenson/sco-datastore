@@ -27,6 +27,8 @@ PROPERTY_FILENAME = 'filename'
 PROPERTY_FILESIZE = 'filesize'
 # String representation of file type.
 PROPERTY_FILETYPE = 'filetype'
+# Name of functional data file in uploaded archive
+PROPERTY_FUNCDATAFILE = 'funcdatafile'
 # Default Mime-type of the image (based on the file name suffix)
 PROPERTY_MIMETYPE = 'mimetype'
 # Model identifier

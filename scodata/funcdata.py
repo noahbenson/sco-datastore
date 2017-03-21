@@ -6,9 +6,22 @@ functional data files on local disk.
 import datetime
 import os
 import shutil
+import tarfile
 import uuid
 
 import datastore
+
+
+# ------------------------------------------------------------------------------
+#
+# Constants
+#
+# ------------------------------------------------------------------------------
+""""Names of sub-folders in functional data directories."""
+# Unpacked Freesurfer directory
+DATA_DIRECTORY = 'data'
+# Folder for original upload file
+UPLOAD_DIRECTORY = 'upload'
 
 
 # ------------------------------------------------------------------------------
@@ -27,8 +40,18 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
 
     Attributes
     ----------
-    directory : string
-        (Absolute) Path to directory conatining functional data archive file
+    data_directory : string
+        (Absolute) Path to directory containing unpacked data files
+    data_files : Dictionary
+        Dictionary of files in the uploaded archive. Dictionary keys are file
+        names.
+    func_data_file : string
+        (Absolute) Path to main functional data file (identified by file
+        suffix mgh/mgz or nii/nii.gz).
+    upload_directory : string
+        (Absolute) Path to directory containing original upload file
+    upload_file : string
+        (Absolute) Path to uploaded archive file
     """
     def __init__(self, identifier, properties, directory, timestamp=None, is_active=True):
         """Initialize the object handle. The directory references a directory
@@ -39,7 +62,7 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
         identifier : string
             Unique object identifier
         properties : Dictionary
-            Dictionary of subject specific properties
+            Dictionary of fMRI specific properties
         directory : string
             Directory conatining functional data archive file
         timestamp : datetime, optional
@@ -55,6 +78,18 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
             directory,
             is_active=is_active
         )
+        self.data_directory = os.path.join(directory, DATA_DIRECTORY)
+        self.upload_directory = os.path.join(directory, UPLOAD_DIRECTORY)
+        # Create list of files in the data directory. The name of the functional
+        # data file is expected to be stored as object property FUNCDATAFILE.
+        self.data_files = dict()
+        for filename in os.listdir(self.data_directory):
+            abs_path = os.path.join(self.data_directory, filename)
+            if filename == self.properties[datastore.PROPERTY_FUNCDATAFILE]:
+                self.func_data_file = abs_path
+            if not os.path.isdir(abs_path):
+                # Ignore files in sub-directories for now
+                self.data_files[filename] = abs_path
 
     @property
     def is_functional_data(self):
@@ -62,21 +97,21 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
         return True
 
     @property
-    def data_file(self):
-        """Original uploaded data file the subject was created from.
+    def upload_file(self):
+        """Original uploaded data file.
 
         Returns
         -------
         File-type object
             Reference to file on local disk
         """
-        return os.path.join(self.directory, self.properties[datastore.PROPERTY_FILENAME])
+        return os.path.join(self.upload_directory, self.properties[datastore.PROPERTY_FILENAME])
 
 
 class FMRIDataHandle(FunctionalDataHandle):
     """Handle to access and manipulate brain responses MRI data object that is
     associated with an experiment. Extends the functional data handle with a
-    reference to the associated. experiment
+    reference to the associated experiment.
 
     Attributes
     ----------
@@ -135,12 +170,13 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
             in sub-directories named by the object identifier.
         """
         # The original name of uploaded files is a mandatory and immutable
-        # property. This name is used as file name when downloading subject
+        # property. This name is used as file name when downloading fMRI
         # data. The file type and mime type do not change either.
         properties = [
             datastore.PROPERTY_FILENAME,
             datastore.PROPERTY_FILESIZE,
-            datastore.PROPERTY_MIMETYPE
+            datastore.PROPERTY_MIMETYPE,
+            datastore.PROPERTY_FUNCDATAFILE
         ]
         # Initialize the super class
         super(DefaultFunctionalDataManager, self).__init__(
@@ -150,10 +186,10 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         )
 
     def create_object(self, filename):
-        """Create a functional data object for the given file. Currently, no
-        tests are performed that the file contains valid data. Expects the file
-        to be a valid tar archive. The file will be copied into the data
-        object's folder on the local disk.
+        """Create a functional data object for the given file. Expects the file
+        to be a valid tar archive. The file will be copied into the upload
+        directory and extracted into the data directory. Expects exactly one
+        file in the archive that has suffix mgh/mgz or nii/nii.gz.
 
         Parameters
         ----------
@@ -165,7 +201,6 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         FunctionalDataHandle
             Handle for created functional data object in database
         """
-
         # Get the file name, i.e., last component of the given absolute path
         prop_name = os.path.basename(os.path.normpath(filename))
         # Ensure that the uploaded file has a valid suffix. Currently no tests
@@ -180,18 +215,52 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         identifier = str(uuid.uuid4())
         # The object directory is given by the object identifier.
         object_dir = os.path.join(self.directory, identifier)
-        # Create the directory if it doesn't exists
+        # Create (sub-)directories for the uploaded and extracted data files.
         if not os.access(object_dir, os.F_OK):
             os.makedirs(object_dir)
+        data_dir = os.path.join(object_dir, DATA_DIRECTORY)
+        os.mkdir(data_dir)
+        upload_dir = os.path.join(object_dir, UPLOAD_DIRECTORY)
+        os.mkdir(upload_dir)
+        # Move original file to object directory
+        uploaded_file = os.path.join(object_dir, prop_name)
+        shutil.copyfile(filename, uploaded_file)
+        # Extract uploaded data into data_dir
+        try:
+            tf = tarfile.open(name=uploaded_file, mode='r')
+            tf.extractall(path=data_dir)
+        except (tarfile.ReadError, IOError) as err:
+            # Clean up in case there is an error during extraction
+            shutil.rmtree(object_dir)
+            raise ValueError(str(err))
+        # Find main functional data file. Expects exactly one file in data_dir
+        # with suffix mgh/mgz or nii/nii.gz. Raise an exception if none or
+        # multiple are found.
+        func_data_file = None
+        try:
+            for filename in os.listdir(data_dir):
+                for suffix in ['.mgh', '.mgz', '.nii', '.nii.gz']:
+                    if filename.endswith(suffix):
+                        if not func_data_file is None:
+                            raise ValueError(
+                                'multiple functional data files found: ' +
+                                func_data_file + ' and ' + filename
+                            )
+                        else:
+                            func_data_file = filename
+            if func_data_file is None:
+                raise ValueError('no functional data file found in archive')
+        except ValueError as ex:
+            shutil.rmtree(object_dir)
+            raise ex
         # Create the initial set of properties for the new image object.
         properties = {
             datastore.PROPERTY_NAME: prop_name,
             datastore.PROPERTY_FILENAME : prop_name,
-            datastore.PROPERTY_FILESIZE : os.path.getsize(filename),
-            datastore.PROPERTY_MIMETYPE : prop_mime
+            datastore.PROPERTY_FILESIZE : os.path.getsize(uploaded_file),
+            datastore.PROPERTY_MIMETYPE : prop_mime,
+            datastore.PROPERTY_FUNCDATAFILE : func_data_file
         }
-        # Move original file to object directory
-        shutil.copyfile(filename, os.path.join(object_dir, prop_name))
         # Create object handle and store it in database before returning it
         obj = FunctionalDataHandle(
             identifier,
