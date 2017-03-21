@@ -223,7 +223,7 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         upload_dir = os.path.join(object_dir, UPLOAD_DIRECTORY)
         os.mkdir(upload_dir)
         # Move original file to object directory
-        uploaded_file = os.path.join(object_dir, prop_name)
+        uploaded_file = os.path.join(upload_dir, prop_name)
         shutil.copyfile(filename, uploaded_file)
         # Extract uploaded data into data_dir
         try:

@@ -239,7 +239,7 @@ class SCODataStore(object):
             return None
         # Return information about fmRI data file
         return FileInfo(
-            fmri.data_file,
+            fmri.upload_file,
             fmri.properties[datastore.PROPERTY_MIMETYPE],
             fmri.properties[datastore.PROPERTY_FILENAME]
         )
