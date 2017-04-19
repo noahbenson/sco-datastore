@@ -25,3 +25,11 @@
 ### 0.4.2 - 2017-03-21
 
 * Bug fix for download prediction result data
+
+### 0.4.3 - 2017-04-19
+
+* Allow upload of NIfTI-files for functional data
+
+### 0.4.4 - 2017-04-19
+
+* Avoid duplication of uploaded functional data files if they are not tar-archives.

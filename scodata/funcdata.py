@@ -79,7 +79,11 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
             is_active=is_active
         )
         self.data_directory = os.path.join(directory, DATA_DIRECTORY)
+        # The upload directory will only exist if the uploaded file was a tar
+        # file. Otherwise upload directory and data directory are the same.
         self.upload_directory = os.path.join(directory, UPLOAD_DIRECTORY)
+        if not os.path.isdir(self.upload_directory):
+            self.upload_directory = self.data_directory
         # Create list of files in the data directory. The name of the functional
         # data file is expected to be stored as object property FUNCDATAFILE.
         self.data_files = dict()
@@ -207,8 +211,10 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         # are performed to ensure that the file actually conatains any data.
         if prop_name.endswith('.tar'):
             prop_mime = 'application/x-tar'
-        elif prop_name.endswith('.tar.gz') or prop_name.endswith('.tgz'):
-            prop_mime =  'application/x-gzip'
+        elif prop_name.endswith('.gz') or prop_name.endswith('.tgz'):
+            prop_mime = 'application/x-gzip'
+        elif prop_name.endswith('.nii'):
+            prop_mime = 'application/NIfTI-1'
         else:
             raise ValueError('unsupported file type: ' + prop_name)
         # Create a new object identifier.
@@ -220,39 +226,47 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
             os.makedirs(object_dir)
         data_dir = os.path.join(object_dir, DATA_DIRECTORY)
         os.mkdir(data_dir)
-        upload_dir = os.path.join(object_dir, UPLOAD_DIRECTORY)
-        os.mkdir(upload_dir)
-        # Move original file to object directory
-        uploaded_file = os.path.join(upload_dir, prop_name)
-        shutil.copyfile(filename, uploaded_file)
-        # Extract uploaded data into data_dir
-        try:
-            tf = tarfile.open(name=uploaded_file, mode='r')
-            tf.extractall(path=data_dir)
-        except (tarfile.ReadError, IOError) as err:
-            # Clean up in case there is an error during extraction
-            shutil.rmtree(object_dir)
-            raise ValueError(str(err))
-        # Find main functional data file. Expects exactly one file in data_dir
-        # with suffix mgh/mgz or nii/nii.gz. Raise an exception if none or
-        # multiple are found.
         func_data_file = None
-        try:
-            for filename in os.listdir(data_dir):
-                for suffix in ['.mgh', '.mgz', '.nii', '.nii.gz']:
-                    if filename.endswith(suffix):
-                        if not func_data_file is None:
-                            raise ValueError(
-                                'multiple functional data files found: ' +
-                                func_data_file + ' and ' + filename
-                            )
-                        else:
-                            func_data_file = filename
-            if func_data_file is None:
-                raise ValueError('no functional data file found in archive')
-        except ValueError as ex:
-            shutil.rmtree(object_dir)
-            raise ex
+        if prop_name.endswith('.tar') or prop_name.endswith('tar.gz') or prop_name.endswith('.tgz'):
+            upload_dir = os.path.join(object_dir, UPLOAD_DIRECTORY)
+            os.mkdir(upload_dir)
+            # Move original file to object directory
+            uploaded_file = os.path.join(upload_dir, prop_name)
+            shutil.copyfile(filename, uploaded_file)
+            # Extract uploaded data into data_dir
+            try:
+                tf = tarfile.open(name=uploaded_file, mode='r')
+                tf.extractall(path=data_dir)
+            except (tarfile.ReadError, IOError) as err:
+                # Clean up in case there is an error during extraction
+                shutil.rmtree(object_dir)
+                raise ValueError(str(err))
+            # Find main functional data file. Expects exactly one file in data_dir
+            # with suffix mgh/mgz or nii/nii.gz. Raise an exception if none or
+            # multiple are found.
+            try:
+                for filename in os.listdir(data_dir):
+                    for suffix in ['.mgh', '.mgz', '.nii', '.nii.gz']:
+                        if filename.endswith(suffix):
+                            if not func_data_file is None:
+                                raise ValueError(
+                                    'multiple functional data files found: ' +
+                                    func_data_file + ' and ' + filename
+                                )
+                            else:
+                                func_data_file = filename
+                if func_data_file is None:
+                    raise ValueError('no functional data file found in archive')
+            except ValueError as ex:
+                shutil.rmtree(object_dir)
+                raise ex
+        else:
+            # If the uploaded file is not a tar-file there is no need to
+            # distinguish between data file and uploaded file. No upload
+            # directory is created
+            func_data_file = prop_name
+            uploaded_file = os.path.join(data_dir, prop_name)
+            shutil.copyfile(filename, uploaded_file)
         # Create the initial set of properties for the new image object.
         properties = {
             datastore.PROPERTY_NAME: prop_name,
