@@ -223,14 +223,19 @@ class DefaultImageManager(datastore.DefaultObjectStore):
             ]
         )
 
-    def create_object(self, filename):
+    def create_object(self, filename, img_properties=None):
         """Create an image object on local disk from the given file. The file
-        be copied to the local directory of the created image object.
+        is copied to a new local directory that is created for the image object.
+        The optional list of image properties will be associated with the new
+        object together with the set of default properties for images.
 
         Parameters
         ----------
         filename : string
             Path to file on disk
+        img_properties : Dictionary, optional
+            Set of image properties.
+
         Returns
         -------
         ImageHandle
@@ -264,7 +269,13 @@ class DefaultImageManager(datastore.DefaultObjectStore):
             datastore.PROPERTY_FILESIZE : os.path.getsize(filename),
             datastore.PROPERTY_MIMETYPE : prop_mime
         }
-        # Move original file to object directory
+        # Add additional image properties (if given). Note that this will not
+        # override the default image properties.
+        if not img_properties is None:
+            for prop in img_properties:
+                if not prop in properties:
+                    properties[prop] = img_properties[prop]
+        # Copy original file to new object's directory
         shutil.copyfile(filename, os.path.join(image_dir, prop_name))
         # Create object handle and store it in database before returning it
         obj = ImageHandle(identifier, properties, image_dir)
