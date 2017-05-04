@@ -33,3 +33,16 @@
 ### 0.4.4 - 2017-04-19
 
 * Avoid duplication of uploaded functional data files if they are not tar-archives.
+
+### 0.5.0 - 2017-05-04
+
+* Add property list as parameter at image object creation
+* Remove data_files dictionary from FunctionalDataHandle
+* Rename module prediction to modelrun
+* Add suffix \_id to object properties that contain object references
+* Change list of valid functional image file suffixes
+* Remove separation between data dir/file and upload dir/file for functional data. Expects a single functional data file.
+* Move validation of attribute lists to module attributes
+* Add class for attribute definitions
+* Add listing of supported image group options definitions
+* Add model run data file attachments

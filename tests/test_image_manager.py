@@ -113,12 +113,12 @@ class TestImageManagerMethods(unittest.TestCase):
             'NAME',
             group,
             tmp_file,
-            options=[attributes.Attribute('stimulus_edge_value', 0.8)]
+            options=[attributes.Attribute('aperture_radius', 0.8)]
         )
         # Ensure that updating attributes does not raise exception
         attrs = [
-            attributes.Attribute('stimulus_edge_value', 0.8),
-            attributes.Attribute('stimulus_aperture_edge_value', 0.75)
+            attributes.Attribute('aperture_radius', 0.8),
+            attributes.Attribute('aperture_edge_width', 0.75)
         ]
         self.mngr_groups.update_object_options(img_group.identifier, attrs)
         # Ensure that exception is raised if unknown attribute name is given
@@ -127,7 +127,7 @@ class TestImageManagerMethods(unittest.TestCase):
                 img_group.identifier,
                 [
                     attributes.Attribute('not_a_defined_attribute', 0.8),
-                    attributes.Attribute('stimulus_edge_value', 0.75)
+                    attributes.Attribute('aperture_radius', 0.75)
                 ]
             )
         # Ensure that exception is raised if duplicate attribute names are in
@@ -136,8 +136,8 @@ class TestImageManagerMethods(unittest.TestCase):
             self.mngr_groups.update_object_options(
                 img_group.identifier,
                 [
-                    attributes.Attribute('stimulus_edge_value', 0.8),
-                    attributes.Attribute('stimulus_edge_value', 0.75)
+                    attributes.Attribute('aperture_radius', 0.8),
+                    attributes.Attribute('aperture_radius', 0.75)
                 ]
             )
         # Ensure that exception is raised if invlid value type is given
@@ -145,8 +145,64 @@ class TestImageManagerMethods(unittest.TestCase):
             self.mngr_groups.update_object_options(
                 img_group.identifier,
                 [
-                    attributes.Attribute('stimulus_edge_value', 0.8),
-                    attributes.Attribute('stimulus_aperture_edge_value', 'abc')
+                    attributes.Attribute('aperture_radius', 0.8),
+                    attributes.Attribute('aperture_edge_width', 'abc')
+                ]
+            )
+
+    def test_images_update_attributes_from_json(self):
+        """Test functionality of updating attributes for an image group where
+        attributes are defined as Json objects (dictionaries)."""
+        # Create image group with fake image
+        group = [images.GroupImage('1', '/', 'NAME', '')]
+        tmp_file = os.path.join(TMP_DIR, os.path.basename(IMAGES_ARCHIVE))
+        shutil.copyfile(os.path.join(DATA_DIR, IMAGES_ARCHIVE), tmp_file)
+        img_group = self.mngr_groups.create_object(
+            'NAME',
+            group,
+            tmp_file,
+            options=[{'name' : 'aperture_radius', 'value' : 0.8}]
+        )
+        # Ensure that updating attributes does not raise exception
+        attrs = [
+            {'name' : 'aperture_radius', 'value' : 0.8},
+            {'name' : 'aperture_edge_width', 'value' : 0.75}
+        ]
+        self.mngr_groups.update_object_options(img_group.identifier, attrs)
+        # Ensure that exception is raised if invalid object is given
+        with self.assertRaises(ValueError):
+            self.mngr_groups.update_object_options(
+                img_group.identifier,
+                [
+                    {'id' : 'aperture_radius', 'value' : 0.75}
+                ]
+            )
+        # Ensure that exception is raised if unknown attribute name is given
+        with self.assertRaises(ValueError):
+            self.mngr_groups.update_object_options(
+                img_group.identifier,
+                [
+                    {'name' : 'not_a_defined_attribute', 'value' : 0.8},
+                    {'name' : 'aperture_radius', 'value' : 0.75}
+                ]
+            )
+        # Ensure that exception is raised if duplicate attribute names are in
+        # update list
+        with self.assertRaises(ValueError):
+            self.mngr_groups.update_object_options(
+                img_group.identifier,
+                [
+                    {'name' : 'aperture_radius', 'value' : 0.8},
+                    {'name' : 'aperture_radius', 'value' : 0.75}
+                ]
+            )
+        # Ensure that exception is raised if invlid value type is given
+        with self.assertRaises(ValueError):
+            self.mngr_groups.update_object_options(
+                img_group.identifier,
+                [
+                    {'name' : 'aperture_radius', 'value' : 0.8},
+                    {'name' : 'aperture_edge_width', 'value' : 'abc'}
                 ]
             )
 

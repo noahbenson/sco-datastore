@@ -5,13 +5,14 @@ import sys
 import unittest
 
 import scodata.mongo as mongo
-import scodata.api as api
+import scodata as api
 import scodata.attribute as attributes
 import scodata.datastore as datastore
-import scodata.prediction as prediction
+import scodata.modelrun as prediction
 
 API_DIR = '/tmp/sco'
 DATA_DIR = './data'
+CSV_FILE = './data/csv/attachment1.csv'
 
 class TestSCODataStoreAPIMethods(unittest.TestCase):
 
@@ -22,7 +23,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         self.IMAGE_FILE = os.path.join(DATA_DIR, 'images/collapse.gif')
         self.NON_IMAGE_FILE = os.path.join(DATA_DIR, 'images/no-image.txt')
         self.IMAGE_GROUP_FILE = os.path.join(DATA_DIR, 'images/images.tar.gz')
-        self.FMRI_FILE = os.path.join(DATA_DIR, 'fmris/fake-fmri.tar.gz')
+        self.FMRI_FILE = os.path.join(DATA_DIR, 'fmris/data.mgz')
         m = mongo.MongoDBFactory(db_name='scotest')
         db = m.get_database()
         db.experiments.drop()
@@ -177,20 +178,21 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         # Create experiment prediction object
         #
-        model_run = self.api.experiments_predictions_create(experiment.identifier, 'Name')
+        model_run = self.api.experiments_predictions_create(experiment.identifier, 'Name', 'Model')
         # Ensure that object is of expected type
         self.assertTrue(model_run.is_model_run)
         # Ensure that creating fMRI for unknown experiment returns None
-        self.assertIsNone(self.api.experiments_predictions_create('not-a-valid-identifier', 'Name'))
+        self.assertIsNone(self.api.experiments_predictions_create('not-a-valid-identifier', 'Name', 'Model'))
         # Create second experiment and prediction with arguments
         exp2 = self.api.experiments_create(subject.identifier, img_grp.identifier, {'name':'Name'})
         mr2 = self.api.experiments_predictions_create(
             exp2.identifier,
             'Name',
+            'Model',
             [
-                attributes.Attribute('gabor_orientations', 10),
-                attributes.Attribute('max_eccentricity', 11),
-                attributes.Attribute('normalized_pixels_per_degree', 0)
+                {'name': 'gabor_orientations', 'value': 10},
+                {'name': 'max_eccentricity', 'value': 11},
+                {'name': 'normalized_pixels_per_degree', 'value': 0}
             ]
         )
         #
@@ -232,8 +234,35 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         )
         # Ensure that state change has happened and is persistent
         self.assertTrue(model_run.state.is_running)
+        # Set state to success
+        model_run = self.api.experiments_predictions_update_state_success(
+            experiment.identifier,
+            model_run.identifier,
+            self.FMRI_FILE
+        )
         model_run = self.api.experiments_predictions_get(experiment.identifier, model_run.identifier)
-        self.assertTrue(model_run.state.is_running)
+        self.assertTrue(model_run.state.is_success)
+        # Attach file to successful model run
+        self.api.experiments_predictions_attachments_create(
+            experiment.identifier,
+            model_run.identifier,
+            'attachment',
+            CSV_FILE
+        )
+        # Read attached file. Content should be '1'
+        file_info = self.api.experiments_predictions_attachments_download(
+            experiment.identifier,
+            model_run.identifier,
+            'attachment',
+        )
+        with open(file_info.file, 'r') as f:
+            self.assertEquals(f.read().strip(), '1')
+        # Delete attached file
+        self.assertTrue(self.api.experiments_predictions_attachments_delete(
+            experiment.identifier,
+            model_run.identifier,
+            'attachment',
+        ))
 
     def test_image_files_api(self):
         """Test all image file related methods of API."""
@@ -328,8 +357,8 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         self.assertIsNotNone(self.api.image_groups_update_options(
             img_grp.identifier,
             [
-                attributes.Attribute('stimulus_edge_value', 0.8),
-                attributes.Attribute('stimulus_aperture_edge_value', 0.75)
+                attributes.Attribute('pixels_per_degree', 0.8),
+                attributes.Attribute('aperture_edge_width', 0.75)
             ]
         ))
         # Ensure that exception is raised if unknown attribute name is given
@@ -338,7 +367,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
                 img_grp.identifier,
                 [
                     attributes.Attribute('not_a_defined_attribute', 0.8),
-                    attributes.Attribute('stimulus_edge_value', 0.75)
+                    attributes.Attribute('pixels_per_degree', 0.75)
                 ]
             )
         self.assertIsNotNone(self.api.image_groups_delete(img_grp.identifier))

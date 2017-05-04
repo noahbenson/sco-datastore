@@ -336,10 +336,12 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
 
     Attributes
     ----------
+    attribute_defs : list(dict(...))
+        List of definitions of valid image group options
     directory : string
         Base directory on local disk for image group files.
     """
-    def __init__(self, mongo_collection, base_directory, image_manager):
+    def __init__(self, mongo_collection, base_directory, image_manager, attribute_defs=None):
         """Initialize the MongoDB collection and base directory where to store
         images group files. Set immutable and mandatory properties.
 
@@ -352,6 +354,8 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             in sub-directories named by the subject identifier.
         image_manager : DefaultImageManager
             Manager for image files
+        attribute_defs : list(dict(...)), optional
+            List of definitions of valid image group options
         """
         # Initialize the super class
         super(DefaultImageGroupManager, self).__init__(
@@ -367,6 +371,75 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         self.immutable_properties.add(PROPERTY_GROUPSIZE)
         # Initialize image manager reference
         self.image_manager = image_manager
+        # Set image grup option definitions. Use default definitions if given
+        # argument is None
+        if not attribute_defs is None:
+            self.attribute_defs = attribute_defs
+        else:
+            self.attribute_defs = [
+                attribute.AttributeDefinition(
+                    'aperture_radius',
+                    'aperture_radius',
+                    'aperture_radius (default: None)\n\n' +
+                    '(images) aperture_radius: Specifies the radius of the ' +
+                    'aperture in degrees; by default this is None,\n        ' +
+                    'indicating that no aperture should be used; otherwise ' +
+                    'the aperture is applied after\n        ' +
+                    'normalizing the images.',
+                    attribute.FloatType()
+                ),
+                attribute.AttributeDefinition(
+                    'pixels_per_degree',
+                    'pixels_per_degree',
+                    'pixels_per_degree\n\n(images) ' +
+                    'pixels_per_degree: Must specify the number of pixels ' +
+                    'per degree in the input images; note\n        ' +
+                    'that all stimulus images must have the same ' +
+                    'pixels_per_degree value.',
+                    attribute.FloatType()
+                ),
+                attribute.AttributeDefinition(
+                    'background',
+                    'background',
+                    'background (default: 0.5)\n\n(images) ' +
+                    'background: Specifies the background color of the ' +
+                    'stimulus; by default this is 0.5 (gray);\n        ' +
+                    'this is only used if an aperture is applied.',
+                    attribute.FloatType(),
+                    default=0.5
+                ),
+                attribute.AttributeDefinition(
+                    'aperture_edge_width',
+                    'aperture_edge_width',
+                    'aperture_edge_width (default: None)\n\n' +
+                    '(images) aperture_edge_width: Specifies the width of ' +
+                    'the aperture edge in degrees; by default this is\n' +
+                    '        1; if 0, then no aperture edge is used.',
+                    attribute.FloatType()
+                ),
+                attribute.AttributeDefinition(
+                    'gamma',
+                    'gamma',
+                    'gamma (default: None)\n\n' +
+                    '(gamma_correction) gamma: May be given, in which case ' +
+                    'it must be one of:\n        - an (n x 2) or (2 x n) ' +
+                    'matrix such that is equivalent to (potentially after ' +
+                    'transposition)\n          a matrix of (x,y) values ' +
+                    'where x is the input gamma and y is the corrected gamma\n'+
+                    '        - a vector of corrected gamma values; if the ' +
+                    'vector u is of length n, then this is \n          ' +
+                    'equivalent to passing a matrix in which the y-values ' +
+                    'are the elements of u and the\n          x-values are ' +
+                    'evenly spaced values that cover the interval [0,1]; ' +
+                    'accordingly there must be\n          at least 2 ' +
+                    'elements\n        - a function that accepts a number ' +
+                    'between 0 and 1 and returns the corrected gamma\n' +
+                    '        By default this is None, and no gamma ' +
+                    'correction is applied.',
+                    attribute.ListType()
+                )
+            ]
+
 
     def create_object(self, name, images, filename, options=None):
         """Create an image group object with the given list of images. The
@@ -382,7 +455,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             List of objects describing images in the group
         filename : string
             Location of local file containing all images in the group
-        options : List(attribute.Attribute), optional
+        options : list(dict('name':...,'value:...')), optional
             List of image group options. If None, default values will be used.
 
         Returns
@@ -413,7 +486,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         # Get dictionary of given options. If none are given opts will be an
         # empty dictionary. If duplicate attribute names are present an
         # exception will be raised.
-        opts = attribute.to_dict(options)
+        opts = attribute.to_dict(options, self.attribute_defs)
         # Create the image group object and store it in the database before
         # returning it.
         obj = ImageGroupHandle(
@@ -564,7 +637,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         ----------
         identifier : string
             Unique object identifier
-        options : List(attribute.Attribute)
+        options : list(dict('name':...,'value:...'))
             List of attribute instances
 
         Returns
@@ -579,7 +652,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         # Replace existing object in database with object having given options.
         # Raises an exception of attributes with duplicate names appear in the
         # list.
-        img_group.options = attribute.to_dict(options)
+        img_group.options = attribute.to_dict(options, self.attribute_defs)
         self.replace_object(img_group)
         # Return image group handle
         return img_group

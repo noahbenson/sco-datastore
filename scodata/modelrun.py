@@ -4,6 +4,7 @@ and their outputs (predictions).
 
 import datetime
 import os
+import shutil
 import uuid
 
 import attribute
@@ -15,6 +16,13 @@ import datastore
 # Constants
 #
 # ------------------------------------------------------------------------------
+
+"""Types of attachments for successful model runs. We currently support two
+types of attachments: DATAFILES are individual files that can be accessed via
+the API, IMAGEARCHIVES are colleciton of images that can be browsed via the API.
+"""
+ATTACHMENT_DATAFILE = 'DATAFILE'
+ATTACHMENT_IMAGEARCHIVE = 'IMAGEARCHIVE'
 
 # Timestamp of run creation
 RUN_CREATED = 'createdAt'
@@ -219,7 +227,7 @@ class ModelRunSuccess(ModelRunState):
 # ------------------------------------------------------------------------------
 
 
-class ModelRunHandle(datastore.ObjectHandle):
+class ModelRunHandle(datastore.DataObjectHandle):
     """Handle to access and manipulate an object representing a model run and
     its state information.
 
@@ -235,7 +243,12 @@ class ModelRunHandle(datastore.ObjectHandle):
     ----------
     arguments: Dictionary(attribute.Attribute)
         Dictionary of typed attributes defining the image group options
-    experiment : string
+    attachments : dict('id' : 'type')
+        Dictionary of post-processing results that are associated with the model
+        run. The attachment type (currently DATAFILE or IMAGEARCHIVE) determines
+        how to access the attached reource. The attribute value is None if no
+        resources have been attached to the model run.
+    experiment_id : string
         Unique experiment object identifier
     model_id : string
         Unique model identifier
@@ -248,10 +261,12 @@ class ModelRunHandle(datastore.ObjectHandle):
         self,
         identifier,
         properties,
+        directory,
         state,
-        experiment,
+        experiment_id,
         model_id,
         arguments,
+        attachments={},
         schedule=None,
         timestamp=None,
         is_active=True):
@@ -263,14 +278,20 @@ class ModelRunHandle(datastore.ObjectHandle):
             Unique object identifier
         properties : Dictionary
             Dictionary of experiment specific properties
+        directory : string
+            Directory on local disk that contains images tar-file file
         state : ModelRunState
             Model run state object
-        experiment : string
+        experiment_id : string
             Unique experiment object identifier
         model_id : string
             Unique model identifier
         arguments: Dictionary(attribute.Attribute)
             Dictionary of typed attributes defining the model run arguments
+        attachments : dict('id' : 'type'), optional
+            Dictionary of post-processing results that are associated with the
+            model run. The attachment type determines how to access the attached
+            reource.
         schedule : Dictionary(string), optional
             Timestamps for model run state changes. Only optinal if timestamp is
             missing as well.
@@ -284,13 +305,15 @@ class ModelRunHandle(datastore.ObjectHandle):
             identifier,
             timestamp,
             properties,
+            directory,
             is_active=is_active
         )
         # Initialize class specific Attributes
         self.state = state
-        self.experiment = experiment
+        self.experiment_id = experiment_id
         self.model_id = model_id
         self.arguments = arguments
+        self.attachments = attachments
         # Set state change information. Only allowed to be missing at run
         # creation, i.e., if timestamp is none.
         if schedule is None:
@@ -302,7 +325,7 @@ class ModelRunHandle(datastore.ObjectHandle):
 
     @property
     def is_model_run(self):
-        """Override the is_experiment property of the base class."""
+        """Override the is_model_run property of the base class."""
         return True
 
 
@@ -312,24 +335,84 @@ class ModelRunHandle(datastore.ObjectHandle):
 #
 # ------------------------------------------------------------------------------
 
-class DefaultModelRunManager(datastore.MongoDBStore):
+class DefaultModelRunManager(datastore.DefaultObjectStore):
     """Manager for model runs and their outputs.
 
     This is a default implentation that uses MongoDB as storage backend.
     """
-    def __init__(self, mongo_collection):
-        """Initialize the MongoDB collection and base directory where to store
-        model runs and ouput files. Set immutable and mandatory properties.
+    def __init__(self, mongo_collection, base_directory):
+        """Initialize the MongoDB collection and set immutable and mandatory
+        properties.
 
         Parameters
         ----------
         mongo_collection : Collection
             Collection in MongoDB storing model run information
+        base_directory : string
+            Base directory on local disk for model run resources.
         """
         # Initialize the super class
         super(DefaultModelRunManager, self).__init__(
             mongo_collection,
+            base_directory,
             [datastore.PROPERTY_STATE, datastore.PROPERTY_MODEL])
+
+    def create_data_file_attachment(self, identifier, resource_id, filename):
+        """Attach a given data file with a model run. The attached file is
+        identified by the resource identifier. If a resource with the given
+        identifier already exists it will be overwritten.
+
+        Parameters
+        ----------
+        identifier : string
+            Unique model run identifier
+        resource_id : string
+            Unique attachment identifier
+        filename : string
+            Path to data file that is being attached. A copy of the file will
+            be created
+
+        Returns
+        -------
+        ModelRunHandle
+            Modified model run handle or None if no run with given identifier
+            exists
+        """
+        # Get model run to ensure that it exists
+        model_run = self.get_object(identifier)
+        if model_run is None:
+            return None
+        # It is only possible to attach files to successful model run
+        if not model_run.state.is_success:
+            raise ValueError('cannot attach file to model run in state: ' + str(model_run.state))
+        # If an attachment with the given identifier exists it can only be
+        # Overwritten if the type of the exosting attachment is DATAFILE.
+        if resource_id in model_run.attachments:
+            if model_run.attachments[resource_id] != ATTACHMENT_DATAFILE:
+                raise ValueError("cannot replace attachment: " + resource_id)
+        # The attachment will be written to a directory with name resource_id
+        # in the data directory for the model_run. If the directory exists it
+        # will be overwritten
+        directory = os.path.abspath(
+            os.path.join(model_run.directory, resource_id)
+        )
+        # Make sure that the given resource identifier leads to a sub-folder
+        # of the model run's data directory
+        if not directory.startswith(os.path.abspath(model_run.directory)):
+            raise ValueError('invalid resource identifier: ' + resource_id)
+        # Delete directory if exists
+        if os.path.exists(directory):
+            shutil.rmtree(directory)
+        os.makedirs(directory)
+        shutil.copyfile(
+            filename,
+            os.path.join(directory, os.path.basename(filename))
+        )
+        # Update model run information in the database
+        model_run.attachments[resource_id] = ATTACHMENT_DATAFILE
+        self.replace_object(model_run)
+        # Return modified model run
+        return model_run
 
     def create_object(self, name, experiment_id, model_id, arguments=None, properties=None):
         """Create a model run object with the given list of arguments. The
@@ -343,7 +426,7 @@ class DefaultModelRunManager(datastore.MongoDBStore):
             Unique identifier of associated experiment object
         model_id : string
             Unique model identifier
-        arguments : list(attribute.Attribute), optional
+        arguments : list(dict('name':...,'value:...')), optional
             List of attribute instances
         properties : Dictionary, optional
             Set of model run properties.
@@ -354,6 +437,12 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         """
         # Create a new object identifier.
         identifier = str(uuid.uuid4())
+        # Directory for successful model run resource files. Directories are
+        # simply named by object identifier
+        directory = os.path.join(self.directory, identifier)
+        # Create the directory if it doesn't exists
+        if not os.access(directory, os.F_OK):
+            os.makedirs(directory)
         # By default all model runs are in IDLE state at creation
         state = ModelRunIdle()
         # Create the initial set of properties.
@@ -367,13 +456,22 @@ class DefaultModelRunManager(datastore.MongoDBStore):
                 if not prop in run_properties:
                     run_properties[prop] = properties[prop]
         # If argument list is not given then the initial set of arguments is
-        # empty. Default values will be used when the model is run.
-        run_arguments = attribute.to_dict(arguments)
+        # empty. Here we do not validate the given arguments. Definitions of
+        # valid argument sets are maintained in the model registry and are not
+        # accessible by the model run manager at this point.
+        run_arguments = {}
+        if not arguments is None:
+            for attr in arguments:
+                run_arguments[attr['name']] = attribute.Attribute(
+                    attr['name'],
+                    attr['value']
+                )
         # Create the image group object and store it in the database before
         # returning it.
         obj = ModelRunHandle(
             identifier,
             run_properties,
+            directory,
             state,
             experiment_id,
             model_id,
@@ -382,6 +480,44 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         self.insert_object(obj)
         return obj
 
+    def delete_data_file_attachment(self, identifier, resource_id):
+        """Delete attached file with given resource identifier from a mode run.
+
+        Raise ValueError if an image archive with the given resource identifier
+        is attached to the model run instead of a data file.
+
+        Parameters
+        ----------
+        identifier : string
+            Unique model run identifier
+        resource_id : string
+            Unique attachment identifier
+
+        Returns
+        -------
+        boolean
+            True, if file was deleted. False, if no attachment with given
+            identifier existed.
+        """
+        # Get model run to ensure that it exists. If not return False
+        model_run = self.get_object(identifier)
+        if model_run is None:
+            return False
+        # Ensure that attachment with given resource identifier exists.
+        if not resource_id in model_run.attachments:
+            return False
+        # Raise an exception if the attached resource is not a data file
+        if model_run.attachments[resource_id] != ATTACHMENT_DATAFILE:
+            raise ValueError("cannot delete attachment: " + resource_id)
+        # Delete resource directory if exists
+        directory = os.path.join(model_run.directory, resource_id)
+        if os.path.exists(directory):
+            shutil.rmtree(directory)
+        # Update model run information in the database
+        del model_run.attachments[resource_id]
+        self.replace_object(model_run)
+        return True
+        
     def from_json(self, document):
         """Create model run object from JSON document retrieved from database.
 
@@ -397,20 +533,59 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         """
         # Get object identifier from Json document
         identifier = str(document['_id'])
+        # Directories are simply named by object identifier
+        directory = os.path.join(self.directory, identifier)
         # Create model run handle.
         return ModelRunHandle(
             identifier,
             document['properties'],
+            directory,
             ModelRunState.from_json(document['state']),
             document['experiment'],
             document['model'],
             attribute.attributes_from_json(document['arguments']),
+            attachments=document['attachments'],
             schedule=document['schedule'],
             timestamp=datetime.datetime.strptime(
                 document['timestamp'], '%Y-%m-%dT%H:%M:%S.%f'
             ),
             is_active=document['active']
         )
+
+    def get_data_file_attachment(self, identifier, resource_id):
+        """Get path to attached data file with given resource identifer. If no
+        data file with given id exists the result will be None.
+
+        Raise ValueError if an image archive with the given resource identifier
+        is attached to the model run instead of a data file.
+
+        Parameters
+        ----------
+        identifier : string
+            Unique model run identifier
+        resource_id : string
+            Unique attachment identifier
+
+        Returns
+        -------
+        string
+            Path to attached data file on disk
+        """
+        # Get model run to ensure that it exists. If not return None
+        model_run = self.get_object(identifier)
+        if model_run is None:
+            return None
+        # Ensure that attachment with given resource identifier exists.
+        if not resource_id in model_run.attachments:
+            return None
+        # Raise an exception if the attached resource is not a data file
+        if model_run.attachments[resource_id] != ATTACHMENT_DATAFILE:
+            raise ValueError("cannot download attachment: " + resource_id)
+        # The attached file is expected to be the only entry in the resource
+        # directory
+        directory = os.path.join(model_run.directory, resource_id)
+        for filename in os.listdir(directory):
+            return os.path.abspath(os.path.join(directory, filename))
 
     def to_json(self, model_run):
         """Create a Json-like dictionary for a model run object. Extends the
@@ -433,11 +608,13 @@ class DefaultModelRunManager(datastore.MongoDBStore):
         # Add run scheduling Timestamps
         json_obj['schedule'] = model_run.schedule
         # Add experiment information
-        json_obj['experiment'] = model_run.experiment
+        json_obj['experiment'] = model_run.experiment_id
         # Add model information
         json_obj['model'] = model_run.model_id
         # Transform dictionary of attributes into list of key-value pairs.
         json_obj['arguments'] = attribute.attributes_to_json(model_run.arguments)
+        # Include attachments
+        json_obj['attachments'] = model_run.attachments
         return json_obj
 
     def update_state(self, identifier, state):

@@ -31,14 +31,14 @@ class ExperimentHandle(datastore.ObjectHandle):
 
     Attributes
     ----------
-    subject : string
+    subject_id : string
         Unique identifier of experiment subject
-    images: string
+    image_group_id: string
         Unique identifier of used image group
-    fmri_data : string, optional
+    fmri_data_id: string, optional
         Unique identifier of functional MRI data for experiment subject
     """
-    def __init__(self, identifier, properties, subject, images, fmri_data=None, timestamp=None, is_active=True):
+    def __init__(self, identifier, properties, subject_id, image_group_id, fmri_data_id=None, timestamp=None, is_active=True):
         """Initialize the subject handle.
 
         Parameters
@@ -47,11 +47,11 @@ class ExperimentHandle(datastore.ObjectHandle):
             Unique object identifier
         properties : Dictionary
             Dictionary of experiment specific properties
-        subject : string
+        subject_id : string
             Unique identifier of experiment subject
-        images: string
+        image_group_id: string
             Unique identifier of used image group
-        fmri_data : string, optional
+        fmri_data_id : string, optional
             Unique identifier of functional MRI data for experiment subject
         timestamp : datetime, optional
             Time stamp of object creation (UTC).
@@ -66,9 +66,9 @@ class ExperimentHandle(datastore.ObjectHandle):
             is_active=is_active
         )
         # Initialize class specific Attributes
-        self.subject = subject
-        self.images = images
-        self.fmri_data = fmri_data
+        self.subject_id = subject_id
+        self.image_group_id = image_group_id
+        self.fmri_data_id = fmri_data_id
 
     @property
     def is_experiment(self):
@@ -105,7 +105,7 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         # Set mongo db collection for predictions (may be None)
         self.coll_predictions = coll_predictions
 
-    def create_object(self, subject, images, properties, fmri_data=None):
+    def create_object(self, subject_id, image_group_id, properties, fmri_data_id=None):
         """Create an experiment object for the subject and image group. Objects
         are referenced by their identifier. The reference to a functional data
         object is optional.
@@ -114,14 +114,14 @@ class DefaultExperimentManager(datastore.MongoDBStore):
 
         Parameters
         ----------
-        subject : string
+        subject_id : string
             Unique identifier of subject
-        images : string
+        image_group_id : string
             Unique identifier of image group
         properties : Dictionary
             Set of experiment properties. Is required to contain at least the
             experiment name
-        fmri_data : string, optional
+        fmri_data_id : string, optional
             Unique identifier of functional MRI data object
 
         Returns
@@ -140,9 +140,9 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         obj = ExperimentHandle(
             identifier,
             properties,
-            subject,
-            images,
-            fmri_data=fmri_data
+            subject_id,
+            image_group_id,
+            fmri_data_id=fmri_data_id
         )
         self.insert_object(obj)
         return obj
@@ -164,15 +164,15 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         active = document['active']
         timestamp = datetime.datetime.strptime(document['timestamp'], '%Y-%m-%dT%H:%M:%S.%f')
         properties = document['properties']
-        subject = document['subject']
-        images = document['images']
-        fmri_data = document['fmri'] if 'fmri' in document else None
+        subject_id = document['subject']
+        image_group_id = document['images']
+        fmri_data_id = document['fmri'] if 'fmri' in document else None
         return ExperimentHandle(
             identifier,
             properties,
-            subject,
-            images,
-            fmri_data=fmri_data,
+            subject_id,
+            image_group_id,
+            fmri_data_id=fmri_data_id,
             timestamp=timestamp,
             is_active=active
         )
@@ -237,20 +237,20 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         # Get the basic Json object from the super class
         json_obj = super(DefaultExperimentManager, self).to_json(experiment)
         # Add associated object references
-        json_obj['subject'] = experiment.subject
-        json_obj['images'] = experiment.images
-        if not experiment.fmri_data is None:
-            json_obj['fmri'] = experiment.fmri_data
+        json_obj['subject'] = experiment.subject_id
+        json_obj['images'] = experiment.image_group_id
+        if not experiment.fmri_data_id is None:
+            json_obj['fmri'] = experiment.fmri_data_id
         return json_obj
 
-    def update_fmri_data(self, identifier, fmri_data):
+    def update_fmri_data(self, identifier, fmri_data_id):
         """Associate the fMRI object with the identified experiment.
 
         Parameters
         ----------
         identifier : string
             Unique experiment object identifier
-        fmri_data : string
+        fmri_data_id : string
             Unique fMRI data object identifier
 
         Returns
@@ -264,7 +264,7 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         if experiment is None:
             return None
         # Update fmri_data property and replace existing object with updated one
-        experiment.fmri_data = fmri_data
+        experiment.fmri_data_id = fmri_data_id
         self.replace_object(experiment)
         # Return modified experiment
         return experiment

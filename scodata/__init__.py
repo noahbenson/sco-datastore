@@ -12,7 +12,7 @@ import datastore
 import experiment
 import funcdata
 import image
-import prediction
+import modelrun
 import subject
 
 
@@ -92,13 +92,14 @@ class SCODataStore(object):
         images_dir = create_dir(os.path.join(abs_base_dir, 'images'))
         image_files_dir = create_dir(os.path.join(images_dir, 'files'))
         image_groups_dir = create_dir(os.path.join(images_dir, 'groups'))
+        predictions_dir = create_dir(os.path.join(abs_base_dir, 'runs'))
         subjects_dir = create_dir(os.path.join(abs_base_dir, 'subjects'))
         # Create object stores
         self.experiments = experiment.DefaultExperimentManager(db.experiments, db.predictions)
         self.funcdata = funcdata.DefaultFunctionalDataManager(db.funcdata, funcdata_dir)
         self.images = image.DefaultImageManager(db.images, image_files_dir)
         self.image_groups = image.DefaultImageGroupManager(db.imagegroups, image_groups_dir, self.images)
-        self.predictions = prediction.DefaultModelRunManager(db.predictions)
+        self.predictions = modelrun.DefaultModelRunManager(db.predictions, predictions_dir)
         self.subjects = subject.DefaultSubjectManager(db.subjects, subjects_dir)
 
     # --------------------------------------------------------------------------
@@ -263,10 +264,10 @@ class SCODataStore(object):
         if experiment is None:
             return None
         # Check if experiment has fMRI data
-        if experiment.fmri_data is None:
+        if experiment.fmri_data_id is None:
             return None
         # Get functional data object handle from database.
-        func_data = self.funcdata.get_object(experiment.fmri_data)
+        func_data = self.funcdata.get_object(experiment.fmri_data_id)
         # Create fMRI handle from functional data handle
         return funcdata.FMRIDataHandle(func_data, experiment_id)
 
@@ -328,6 +329,104 @@ class SCODataStore(object):
         """
         return self.experiments.list_objects(limit=limit, offset=offset)
 
+    def experiments_predictions_attachments_create(self, experiment_id, run_id, resource_id, filename):
+        """Attach a given data file with a model run. The attached file is
+        identified by the resource identifier. If a resource with the given
+        identifier already exists it will be overwritten.
+
+        Parameters
+        ----------
+        experiment_id : string
+            Unique experiment identifier
+        model_id : string
+            Unique identifier of model to run
+        resource_id : string
+            Unique attachment identifier
+        filename : string
+            Path to data file that is being attached. A copy of the file will
+            be created
+
+        Returns
+        -------
+        ModelRunHandle
+            Modified model run handle or None if no run with given identifier
+            exists
+        """
+        # Get experiment to ensure that it exists
+        if self.experiments_get(experiment_id) is None:
+            return None
+        return self.predictions.create_data_file_attachment(run_id, resource_id, filename)
+
+    def experiments_predictions_attachments_delete(self, experiment_id, run_id, resource_id):
+        """Delete attached file with given resource identifier from a mode run.
+
+        Raise ValueError if an image archive with the given resource identifier
+        is attached to the model run instead of a data file.
+
+
+        Parameters
+        ----------
+        experiment_id : string
+            Unique experiment identifier
+        model_id : string
+            Unique identifier of model to run
+        resource_id : string
+            Unique attachment identifier
+
+        Returns
+        -------
+        boolean
+            True, if file was deleted. False, if no attachment with given
+            resource identifier existed.
+        """
+        # Get experiment to ensure that it exists
+        if self.experiments_get(experiment_id) is None:
+            return False
+        return self.predictions.delete_data_file_attachment(run_id, resource_id)
+
+    def experiments_predictions_attachments_download(self, experiment_id, run_id, resource_id):
+        """Download a data file that has been attached with a successful model
+        run.
+
+        Parameters
+        ----------
+        experiment_id : string
+            Unique experiment identifier
+        model_id : string
+            Unique identifier of model to run
+        resource_id : string
+            Unique attachment identifier
+
+        Returns
+        -------
+        FileInfo
+            Information about attachmed file on disk or None if attachment with
+            given resource identifier exists
+        """
+        # Get experiment to ensure that it exists
+        if self.experiments_get(experiment_id) is None:
+            return None
+        attachment = self.predictions.get_data_file_attachment(run_id, resource_id)
+        if attachment is None:
+            return  None
+        # The file mime type is currently being determined by the file suffix
+        filename = os.path.basename(attachment)
+        mime_type = 'text/plain'
+        if filename.endswith('.csv'):
+            mime_type = 'text/csv'
+        elif filename.endswith('.tsv'):
+            mime_type = 'text/tab-separated-values'
+        elif filename.endswith('.gz'):
+            mime_type = 'application/x-gzip'
+        elif filename.endswith('.png'):
+            mime_type = 'image/png'
+        elif filename.endswith('.jpg'):
+            mime_type = 'image/jpeg'
+        elif filename.endswith('.gif'):
+            mime_type = 'image/gif'
+        # Return information about the result file
+        return FileInfo(attachment, mime_type, filename)
+
     def experiments_predictions_create(self, experiment_id, model_id, name, arguments=None, properties=None):
         """Create new model run for given experiment.
 
@@ -339,8 +438,8 @@ class SCODataStore(object):
             Unique identifier of model to run
         name : string
             User-provided name for the model run
-        arguments : List(attribute.Attribute)
-            List of arguments for model run
+        arguments : list(dict('name':...,'value:...')), optional
+            List of attribute instances
         properties : Dictionary, optional
             Set of model run properties.
 
@@ -447,7 +546,7 @@ class SCODataStore(object):
         if model_run is None:
             return None
         # Perform additional check that prediction is for given experiment
-        if experiment_id != model_run.experiment:
+        if experiment_id != model_run.experiment_id:
             return None
         # Return model run object
         return model_run
@@ -501,7 +600,7 @@ class SCODataStore(object):
         # Update predition state
         return self.predictions.update_state(
             run_id,
-            prediction.ModelRunActive()
+            modelrun.ModelRunActive()
         )
 
     def experiments_predictions_update_state_error(self, experiment_id, run_id, errors):
@@ -529,7 +628,7 @@ class SCODataStore(object):
         # Update predition state
         return self.predictions.update_state(
             run_id,
-            prediction.ModelRunFailed(errors)
+            modelrun.ModelRunFailed(errors)
         )
 
     def experiments_predictions_update_state_success(self, experiment_id, run_id, result_file):
@@ -559,7 +658,7 @@ class SCODataStore(object):
         # Update predition state
         return self.predictions.update_state(
             run_id,
-            prediction.ModelRunSuccess(funcdata.identifier)
+            modelrun.ModelRunSuccess(funcdata.identifier)
         )
 
     def experiments_predictions_upsert_property(self, experiment_id, run_id, properties):
@@ -865,6 +964,16 @@ class SCODataStore(object):
             Listing of image group handles
         """
         return self.image_groups.list_objects(limit=limit, offset=offset)
+
+    def image_groups_options(self):
+        """Get a list of all supported image group options.
+
+        Returns
+        -------
+        list
+            List of AttributeDefinitions
+        """
+        return self.image_groups.attribute_defs
 
     def image_groups_update_options(self, image_group_id, options):
         """Update set of typed options associated with a given image group.

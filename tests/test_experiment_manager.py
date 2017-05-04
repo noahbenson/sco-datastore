@@ -35,26 +35,26 @@ class TestExperimentManagerMethods(unittest.TestCase):
         experiment = self.mngr.get_object(identifier)
         self.assertEqual(identifier, experiment.identifier)
         # Ensure that subject and image objects are referenced properly
-        self.assertEqual(experiment.subject, 'subject-id')
-        self.assertEqual(experiment.images, 'images-id')
-        self.assertIsNone(experiment.fmri_data)
+        self.assertEqual(experiment.subject_id, 'subject-id')
+        self.assertEqual(experiment.image_group_id, 'images-id')
+        self.assertIsNone(experiment.fmri_data_id)
         # Update fMRI data
         experiment = self.mngr.update_fmri_data(identifier, 'fmri-id')
         self.assertIsNotNone(experiment)
-        self.assertEqual(experiment.fmri_data, 'fmri-id')
+        self.assertEqual(experiment.fmri_data_id, 'fmri-id')
         experiment = self.mngr.get_object(experiment.identifier)
         # Ensure that subject and image objects are referenced properly
-        self.assertEqual(experiment.subject, 'subject-id')
-        self.assertEqual(experiment.images, 'images-id')
-        self.assertEqual(experiment.fmri_data, 'fmri-id')
+        self.assertEqual(experiment.subject_id, 'subject-id')
+        self.assertEqual(experiment.image_group_id, 'images-id')
+        self.assertEqual(experiment.fmri_data_id, 'fmri-id')
 
         # Create an experiment from fake data this time with functional data
-        experiment = self.mngr.create_object('subject-id', 'images-id', {'name':'NAME'}, fmri_data='fmri-id')
+        experiment = self.mngr.create_object('subject-id', 'images-id', {'name':'NAME'}, fmri_data_id='fmri-id')
         experiment = self.mngr.get_object(experiment.identifier)
         # Ensure that subject and image objects are referenced properly
-        self.assertEqual(experiment.subject, 'subject-id')
-        self.assertEqual(experiment.images, 'images-id')
-        self.assertEqual(experiment.fmri_data, 'fmri-id')
+        self.assertEqual(experiment.subject_id, 'subject-id')
+        self.assertEqual(experiment.image_group_id, 'images-id')
+        self.assertEqual(experiment.fmri_data_id, 'fmri-id')
 
 
 if __name__ == '__main__':

@@ -9,8 +9,7 @@ import scodata.funcdata as funcdata
 
 FMRIS_DIR = '/tmp/sco/funcdata'
 DATA_DIR = './data'
-FMRI_ARCHIVE = 'fmris/fmri.tar'
-FAKE_FMRI_ARCHIVE = 'fmris/fake-fmri.tar.gz'
+FMRI_ARCHIVE = 'fmris/data.mgz'
 INVALID_FMRI_ARCHIVE = 'fmris/invalid-fmri.tar'
 
 class TestFuncDataManagerMethods(unittest.TestCase):
@@ -36,8 +35,6 @@ class TestFuncDataManagerMethods(unittest.TestCase):
         # Assert that object is active and is_functional property is true
         self.assertTrue(fmri.is_active)
         self.assertTrue(fmri.is_functional_data)
-        # Ensure that the object has two data files
-        self.assertEquals(len(fmri.data_files), 2)
         # Ensure that other class type properties are false
         self.assertFalse(fmri.is_experiment)
         self.assertFalse(fmri.is_image_group)
@@ -49,15 +46,6 @@ class TestFuncDataManagerMethods(unittest.TestCase):
 
     def test_invalid_create(self):
         """Test creation of functional data objects from invalid fMRI files."""
-        # Create a functional data object from an archive file that does not
-        # contain a functional data files
-        tmp_file = os.path.join(FMRIS_DIR, os.path.basename(FAKE_FMRI_ARCHIVE))
-        shutil.copyfile(os.path.join(DATA_DIR, FAKE_FMRI_ARCHIVE), tmp_file)
-        with self.assertRaises(ValueError):
-            fmri = self.mngr.create_object(tmp_file)
-        os.remove(tmp_file)
-        # Create a functional data object from a file that contains multiple
-        # functional data files
         tmp_file = os.path.join(FMRIS_DIR, os.path.basename(INVALID_FMRI_ARCHIVE))
         shutil.copyfile(os.path.join(DATA_DIR, INVALID_FMRI_ARCHIVE), tmp_file)
         with self.assertRaises(ValueError):

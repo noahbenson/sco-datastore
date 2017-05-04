@@ -79,8 +79,10 @@ class ObjectHandle(object):
         True, if object is ImageHandle.
     is_image_group : Boolean
         True, if object is ImageGroupHandle.
+    is_model : Boolean
+        True, if object is ModelHandle.
     is_model_run : Boolean
-        True, if object is PredictionHandle.
+        True, if object is ModelRunHandle.
     is_subject : Boolean
         True, if object is SubjectHandle.
     """
@@ -173,6 +175,19 @@ class ObjectHandle(object):
         -------
         Boolean
             True, if object isImageGroupHandle. By default the result is False
+            in the base class.
+        """
+        return False
+
+    @property
+    def is_model_run(self):
+        """Flag indicating whether this object represents an model description
+        object.
+
+        Returns
+        -------
+        Boolean
+            True, if object is ModelHandle. By default the result is False
             in the base class.
         """
         return False
