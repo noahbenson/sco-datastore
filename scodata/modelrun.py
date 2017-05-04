@@ -40,6 +40,40 @@ STATE_SUCCESS = 'SUCCESS'
 
 # ------------------------------------------------------------------------------
 #
+# Attachments
+#
+# ------------------------------------------------------------------------------
+
+class Attachment(object):
+    def __init__(self, identifier, attachment_type, mime_type):
+        if not attachment_type in [ATTACHMENT_DATAFILE, ATTACHMENT_IMAGEARCHIVE]:
+            raise valueError('unknown attachment type: ' + attachment_type)
+        self.identifier = identifier
+        self.attachment_type = attachment_type
+        self.mime_type = mime_type
+
+    @classmethod
+    def from_json(cls, document):
+        return cls(document['id'], document['type'], document['mimeType'])
+
+    @property
+    def is_datafile(self):
+        return self.attachment_type == ATTACHMENT_DATAFILE
+
+    @property
+    def is_imagearchive(self):
+        return self.attachment_type == ATTACHMENT_IMAGEARCHIVE
+
+    def to_json(self):
+        return {
+            'id' : self.identifier,
+            'type' : self.attachment_type,
+            'mimeType' : self.mime_type
+        }
+
+
+# ------------------------------------------------------------------------------
+#
 # Model Run State Objects
 #
 # ------------------------------------------------------------------------------
@@ -243,11 +277,10 @@ class ModelRunHandle(datastore.DataObjectHandle):
     ----------
     arguments: Dictionary(attribute.Attribute)
         Dictionary of typed attributes defining the image group options
-    attachments : dict('id' : 'type')
+    attachments : dict(Attachment)
         Dictionary of post-processing results that are associated with the model
         run. The attachment type (currently DATAFILE or IMAGEARCHIVE) determines
-        how to access the attached reource. The attribute value is None if no
-        resources have been attached to the model run.
+        how to access the attached resource.
     experiment_id : string
         Unique experiment object identifier
     model_id : string
@@ -288,10 +321,10 @@ class ModelRunHandle(datastore.DataObjectHandle):
             Unique model identifier
         arguments: Dictionary(attribute.Attribute)
             Dictionary of typed attributes defining the model run arguments
-        attachments : dict('id' : 'type'), optional
+        attachments : dict(Attachment), optional
             Dictionary of post-processing results that are associated with the
             model run. The attachment type determines how to access the attached
-            reource.
+            resource.
         schedule : Dictionary(string), optional
             Timestamps for model run state changes. Only optinal if timestamp is
             missing as well.
@@ -388,7 +421,7 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # If an attachment with the given identifier exists it can only be
         # Overwritten if the type of the exosting attachment is DATAFILE.
         if resource_id in model_run.attachments:
-            if model_run.attachments[resource_id] != ATTACHMENT_DATAFILE:
+            if not model_run.attachments[resource_id].is_datafile:
                 raise ValueError("cannot replace attachment: " + resource_id)
         # The attachment will be written to a directory with name resource_id
         # in the data directory for the model_run. If the directory exists it
@@ -408,8 +441,26 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             filename,
             os.path.join(directory, os.path.basename(filename))
         )
+        # Mime type is derived from the file name
+        mime_type = 'text/plain'
+        if filename.endswith('.csv'):
+            mime_type = 'text/csv'
+        elif filename.endswith('.tsv'):
+            mime_type = 'text/tab-separated-values'
+        elif filename.endswith('.gz'):
+            mime_type = 'application/x-gzip'
+        elif filename.endswith('.png'):
+            mime_type = 'image/png'
+        elif filename.endswith('.jpg'):
+            mime_type = 'image/jpeg'
+        elif filename.endswith('.gif'):
+            mime_type = 'image/gif'
         # Update model run information in the database
-        model_run.attachments[resource_id] = ATTACHMENT_DATAFILE
+        model_run.attachments[resource_id] = Attachment(
+            resource_id,
+            ATTACHMENT_DATAFILE,
+            mime_type
+        )
         self.replace_object(model_run)
         # Return modified model run
         return model_run
@@ -507,7 +558,7 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         if not resource_id in model_run.attachments:
             return False
         # Raise an exception if the attached resource is not a data file
-        if model_run.attachments[resource_id] != ATTACHMENT_DATAFILE:
+        if not model_run.attachments[resource_id].is_datafile:
             raise ValueError("cannot delete attachment: " + resource_id)
         # Delete resource directory if exists
         directory = os.path.join(model_run.directory, resource_id)
@@ -517,7 +568,7 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         del model_run.attachments[resource_id]
         self.replace_object(model_run)
         return True
-        
+
     def from_json(self, document):
         """Create model run object from JSON document retrieved from database.
 
@@ -535,6 +586,11 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         identifier = str(document['_id'])
         # Directories are simply named by object identifier
         directory = os.path.join(self.directory, identifier)
+        # Create attachment descriptors
+        attachments = {}
+        for obj in document['attachments']:
+            attachment = Attachment.from_json(obj)
+            attachments[attachment.identifier] = attachment
         # Create model run handle.
         return ModelRunHandle(
             identifier,
@@ -544,7 +600,7 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             document['experiment'],
             document['model'],
             attribute.attributes_from_json(document['arguments']),
-            attachments=document['attachments'],
+            attachments=attachments,
             schedule=document['schedule'],
             timestamp=datetime.datetime.strptime(
                 document['timestamp'], '%Y-%m-%dT%H:%M:%S.%f'
@@ -568,24 +624,25 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
 
         Returns
         -------
-        string
-            Path to attached data file on disk
+        string, string
+            Path to attached data file on disk and attachments MIME type
         """
         # Get model run to ensure that it exists. If not return None
         model_run = self.get_object(identifier)
         if model_run is None:
-            return None
+            return None, None
         # Ensure that attachment with given resource identifier exists.
         if not resource_id in model_run.attachments:
-            return None
+            return None, None
         # Raise an exception if the attached resource is not a data file
-        if model_run.attachments[resource_id] != ATTACHMENT_DATAFILE:
+        attachment = model_run.attachments[resource_id]
+        if not attachment.is_datafile:
             raise ValueError("cannot download attachment: " + resource_id)
         # The attached file is expected to be the only entry in the resource
         # directory
         directory = os.path.join(model_run.directory, resource_id)
         for filename in os.listdir(directory):
-            return os.path.abspath(os.path.join(directory, filename))
+            return os.path.join(directory, filename), attachment.mime_type
 
     def to_json(self, model_run):
         """Create a Json-like dictionary for a model run object. Extends the
@@ -614,7 +671,10 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # Transform dictionary of attributes into list of key-value pairs.
         json_obj['arguments'] = attribute.attributes_to_json(model_run.arguments)
         # Include attachments
-        json_obj['attachments'] = model_run.attachments
+        json_obj['attachments'] = [
+            attachment.to_json()
+                for attachment in model_run.attachments.values()
+            ]
         return json_obj
 
     def update_state(self, identifier, state):

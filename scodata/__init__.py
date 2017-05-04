@@ -406,26 +406,14 @@ class SCODataStore(object):
         # Get experiment to ensure that it exists
         if self.experiments_get(experiment_id) is None:
             return None
-        attachment = self.predictions.get_data_file_attachment(run_id, resource_id)
+        attachment, mime_type = self.predictions.get_data_file_attachment(
+            run_id,
+            resource_id
+        )
         if attachment is None:
             return  None
-        # The file mime type is currently being determined by the file suffix
-        filename = os.path.basename(attachment)
-        mime_type = 'text/plain'
-        if filename.endswith('.csv'):
-            mime_type = 'text/csv'
-        elif filename.endswith('.tsv'):
-            mime_type = 'text/tab-separated-values'
-        elif filename.endswith('.gz'):
-            mime_type = 'application/x-gzip'
-        elif filename.endswith('.png'):
-            mime_type = 'image/png'
-        elif filename.endswith('.jpg'):
-            mime_type = 'image/jpeg'
-        elif filename.endswith('.gif'):
-            mime_type = 'image/gif'
         # Return information about the result file
-        return FileInfo(attachment, mime_type, filename)
+        return FileInfo(attachment, mime_type, os.path.basename(attachment))
 
     def experiments_predictions_create(self, experiment_id, model_id, name, arguments=None, properties=None):
         """Create new model run for given experiment.

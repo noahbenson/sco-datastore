@@ -46,3 +46,8 @@
 * Add class for attribute definitions
 * Add listing of supported image group options definitions
 * Add model run data file attachments
+
+### 0.5.1 - 2017-05-04
+
+* Add mime type information to attachment descriptions (for data files only)
+* Add Attachment class
