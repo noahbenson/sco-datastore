@@ -20,7 +20,11 @@ class MongoDBFactory(object):
             Name of the database (default: scoserv)
         """
         self.db_name = db_name
-    
+
+    def drop_database(self):
+        """Drop the database the factory connects to."""
+        MongoClient().drop_database(self.db_name)
+
     def get_database(self):
         """Create a new default mongo database object.
 

@@ -51,3 +51,8 @@
 
 * Add mime type information to attachment descriptions (for data files only)
 * Add Attachment class
+
+
+### 0.5.2 - 2017-05-19
+
+* Add drop_database to MongoClientFactory to allow database initialization
