@@ -17,13 +17,6 @@ import datastore
 #
 # ------------------------------------------------------------------------------
 
-"""Types of attachments for successful model runs. We currently support two
-types of attachments: DATAFILES are individual files that can be accessed via
-the API, IMAGEARCHIVES are colleciton of images that can be browsed via the API.
-"""
-ATTACHMENT_DATAFILE = 'DATAFILE'
-ATTACHMENT_IMAGEARCHIVE = 'IMAGEARCHIVE'
-
 # Timestamp of run creation
 RUN_CREATED = 'createdAt'
 # Timestamp of run start
@@ -45,29 +38,17 @@ STATE_SUCCESS = 'SUCCESS'
 # ------------------------------------------------------------------------------
 
 class Attachment(object):
-    def __init__(self, identifier, attachment_type, mime_type):
-        if not attachment_type in [ATTACHMENT_DATAFILE, ATTACHMENT_IMAGEARCHIVE]:
-            raise valueError('unknown attachment type: ' + attachment_type)
+    def __init__(self, identifier, mime_type):
         self.identifier = identifier
-        self.attachment_type = attachment_type
         self.mime_type = mime_type
 
     @classmethod
     def from_json(cls, document):
-        return cls(document['id'], document['type'], document['mimeType'])
-
-    @property
-    def is_datafile(self):
-        return self.attachment_type == ATTACHMENT_DATAFILE
-
-    @property
-    def is_imagearchive(self):
-        return self.attachment_type == ATTACHMENT_IMAGEARCHIVE
+        return cls(document['id'], document['mimeType'])
 
     def to_json(self):
         return {
             'id' : self.identifier,
-            'type' : self.attachment_type,
             'mimeType' : self.mime_type
         }
 
@@ -275,12 +256,11 @@ class ModelRunHandle(datastore.DataObjectHandle):
 
     Attributes
     ----------
-    arguments: Dictionary(attribute.Attribute)
+    arguments: dict(attribute.Attribute)
         Dictionary of typed attributes defining the image group options
     attachments : dict(Attachment)
         Dictionary of post-processing results that are associated with the model
-        run. The attachment type (currently DATAFILE or IMAGEARCHIVE) determines
-        how to access the attached resource.
+        run
     experiment_id : string
         Unique experiment object identifier
     model_id : string
@@ -390,7 +370,7 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             base_directory,
             [datastore.PROPERTY_STATE, datastore.PROPERTY_MODEL])
 
-    def create_data_file_attachment(self, identifier, resource_id, filename):
+    def create_data_file_attachment(self, identifier, resource_id, filename, mime_type=None):
         """Attach a given data file with a model run. The attached file is
         identified by the resource identifier. If a resource with the given
         identifier already exists it will be overwritten.
@@ -404,6 +384,8 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         filename : string
             Path to data file that is being attached. A copy of the file will
             be created
+        mime_type : string, optional
+            File Mime type
 
         Returns
         -------
@@ -418,56 +400,55 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # It is only possible to attach files to successful model run
         if not model_run.state.is_success:
             raise ValueError('cannot attach file to model run in state: ' + str(model_run.state))
-        # If an attachment with the given identifier exists it can only be
-        # Overwritten if the type of the exosting attachment is DATAFILE.
-        if resource_id in model_run.attachments:
-            if not model_run.attachments[resource_id].is_datafile:
-                raise ValueError("cannot replace attachment: " + resource_id)
         # The attachment will be written to a directory with name resource_id
         # in the data directory for the model_run. If the directory exists it
         # will be overwritten
-        directory = os.path.abspath(
-            os.path.join(model_run.directory, resource_id)
+        directory, local_name = os.path.split(
+            os.path.abspath(os.path.join(model_run.directory, resource_id))
         )
         # Make sure that the given resource identifier leads to a sub-folder
         # of the model run's data directory
         if not directory.startswith(os.path.abspath(model_run.directory)):
             raise ValueError('invalid resource identifier: ' + resource_id)
-        # Delete directory if exists
-        if os.path.exists(directory):
-            shutil.rmtree(directory)
-        os.makedirs(directory)
+        # Delete directory if exists (only if it is not the home directory of
+        # the model run)
+        if not directory == model_run.directory:
+            if os.path.exists(directory):
+                shutil.rmtree(directory)
+            os.makedirs(directory)
         shutil.copyfile(
             filename,
             os.path.join(directory, os.path.basename(filename))
         )
-        # Mime type is derived from the file name
-        mime_type = 'text/plain'
-        if filename.endswith('.csv'):
-            mime_type = 'text/csv'
-        elif filename.endswith('.tsv'):
-            mime_type = 'text/tab-separated-values'
-        elif filename.endswith('.gz'):
-            mime_type = 'application/x-gzip'
-        elif filename.endswith('.png'):
-            mime_type = 'image/png'
-        elif filename.endswith('.jpg'):
-            mime_type = 'image/jpeg'
-        elif filename.endswith('.gif'):
-            mime_type = 'image/gif'
+        if mime_type is None:
+            # Mime type is derived from the file name
+            mime_type = 'text/plain'
+            if filename.endswith('.csv'):
+                mime_type = 'text/csv'
+            elif filename.endswith('.tsv'):
+                mime_type = 'text/tab-separated-values'
+            elif filename.endswith('.gz'):
+                mime_type = 'application/x-gzip'
+            elif filename.endswith('.png'):
+                mime_type = 'image/png'
+            elif filename.endswith('.jpg'):
+                mime_type = 'image/jpeg'
+            elif filename.endswith('.gif'):
+                mime_type = 'image/gif'
         # Update model run information in the database
         model_run.attachments[resource_id] = Attachment(
             resource_id,
-            ATTACHMENT_DATAFILE,
             mime_type
         )
         self.replace_object(model_run)
         # Return modified model run
         return model_run
 
-    def create_object(self, name, experiment_id, model_id, arguments=None, properties=None):
+    def create_object(self, name, experiment_id, model_id, argument_defs, arguments=None, properties=None):
         """Create a model run object with the given list of arguments. The
         initial state of the object is RUNNING.
+
+        Raises ValueError if given arguments are invalid.
 
         Parameters
         ----------
@@ -477,6 +458,8 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             Unique identifier of associated experiment object
         model_id : string
             Unique model identifier
+        argument_defs : list(attribute.AttributeDefinition)
+            Definition of valid arguments for the given model
         arguments : list(dict('name':...,'value:...')), optional
             List of attribute instances
         properties : Dictionary, optional
@@ -512,11 +495,9 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # accessible by the model run manager at this point.
         run_arguments = {}
         if not arguments is None:
-            for attr in arguments:
-                run_arguments[attr['name']] = attribute.Attribute(
-                    attr['name'],
-                    attr['value']
-                )
+            # Convert arguments to dictionary of Atrribute instances. Will
+            # raise an exception if values are of invalid type.
+            run_arguments = attribute.to_dict(arguments, argument_defs)
         # Create the image group object and store it in the database before
         # returning it.
         obj = ModelRunHandle(
@@ -557,13 +538,15 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # Ensure that attachment with given resource identifier exists.
         if not resource_id in model_run.attachments:
             return False
-        # Raise an exception if the attached resource is not a data file
-        if not model_run.attachments[resource_id].is_datafile:
-            raise ValueError("cannot delete attachment: " + resource_id)
-        # Delete resource directory if exists
-        directory = os.path.join(model_run.directory, resource_id)
-        if os.path.exists(directory):
+        # Delete resource directory if exists and it is not the model run
+        # directory
+        directory, local_name = os.path.split(
+            os.path.join(model_run.directory, resource_id)
+        )
+        if os.path.exists(directory) and not model_run.directory == directory:
             shutil.rmtree(directory)
+        else:
+            os.remove(os.path.join(model_run.directory, resource_id))
         # Update model run information in the database
         del model_run.attachments[resource_id]
         self.replace_object(model_run)
@@ -636,13 +619,12 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             return None, None
         # Raise an exception if the attached resource is not a data file
         attachment = model_run.attachments[resource_id]
-        if not attachment.is_datafile:
-            raise ValueError("cannot download attachment: " + resource_id)
         # The attached file is expected to be the only entry in the resource
         # directory
-        directory = os.path.join(model_run.directory, resource_id)
-        for filename in os.listdir(directory):
-            return os.path.join(directory, filename), attachment.mime_type
+        directory, filename = os.path.split(
+            os.path.join(model_run.directory, resource_id)
+        )
+        return os.path.join(directory, filename), attachment.mime_type
 
     def to_json(self, model_run):
         """Create a Json-like dictionary for a model run object. Extends the

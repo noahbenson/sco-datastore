@@ -496,6 +496,10 @@ class MongoDBStore(ObjectStore):
         super(MongoDBStore, self).__init__(properties)
         self.collection = mongo_collection
 
+    def clear_collection(self):
+        """Remove all objects from the MongoDB collection."""
+        self.collection.drop()
+
     def delete_object(self, identifier, erase=False):
         """Delete the entry with given identifier in the database. Returns the
         handle for the deleted object or None if object identifier is unknown.

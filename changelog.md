@@ -56,3 +56,10 @@
 ### 0.5.2 - 2017-05-19
 
 * Add drop_database to MongoClientFactory to allow database initialization
+
+
+### 0.6.0 - 2017-06-27
+
+* Add optional Mime-type parameter for prediction attachments
+* Add MongoDBStore.clear_collection() to remove all objects in a collection
+* Remove attachment types

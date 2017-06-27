@@ -329,7 +329,7 @@ class SCODataStore(object):
         """
         return self.experiments.list_objects(limit=limit, offset=offset)
 
-    def experiments_predictions_attachments_create(self, experiment_id, run_id, resource_id, filename):
+    def experiments_predictions_attachments_create(self, experiment_id, run_id, resource_id, filename, mime_type=None):
         """Attach a given data file with a model run. The attached file is
         identified by the resource identifier. If a resource with the given
         identifier already exists it will be overwritten.
@@ -345,7 +345,8 @@ class SCODataStore(object):
         filename : string
             Path to data file that is being attached. A copy of the file will
             be created
-
+        mime_type : string, optional
+            File Mime type
         Returns
         -------
         ModelRunHandle
@@ -355,7 +356,12 @@ class SCODataStore(object):
         # Get experiment to ensure that it exists
         if self.experiments_get(experiment_id) is None:
             return None
-        return self.predictions.create_data_file_attachment(run_id, resource_id, filename)
+        return self.predictions.create_data_file_attachment(
+            run_id,
+            resource_id,
+            filename,
+            mime_type=mime_type
+        )
 
     def experiments_predictions_attachments_delete(self, experiment_id, run_id, resource_id):
         """Delete attached file with given resource identifier from a mode run.
@@ -415,7 +421,7 @@ class SCODataStore(object):
         # Return information about the result file
         return FileInfo(attachment, mime_type, os.path.basename(attachment))
 
-    def experiments_predictions_create(self, experiment_id, model_id, name, arguments=None, properties=None):
+    def experiments_predictions_create(self, experiment_id, model_id, argument_defs, name, arguments=None, properties=None):
         """Create new model run for given experiment.
 
         Parameters
@@ -426,6 +432,8 @@ class SCODataStore(object):
             Unique identifier of model to run
         name : string
             User-provided name for the model run
+        argument_defs : list(attribute.AttributeDefinition)
+            Definition of valid arguments for the given model
         arguments : list(dict('name':...,'value:...')), optional
             List of attribute instances
         properties : Dictionary, optional
@@ -444,6 +452,7 @@ class SCODataStore(object):
             name,
             experiment_id,
             model_id,
+            argument_defs,
             arguments=arguments,
             properties=properties
         )
