@@ -470,7 +470,7 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             Object handle for created model run
         """
         # Create a new object identifier.
-        identifier = str(uuid.uuid4())
+        identifier = str(uuid.uuid4()).replace('-','')
         # Directory for successful model run resource files. Directories are
         # simply named by object identifier
         directory = os.path.join(self.directory, identifier)

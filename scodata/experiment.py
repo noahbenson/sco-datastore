@@ -135,7 +135,7 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         elif properties[datastore.PROPERTY_NAME] is None:
             raise ValueError('invalid experiment name')
         # Create a new object identifier.
-        identifier = str(uuid.uuid4())
+        identifier = str(uuid.uuid4()).replace('-','')
         # Create object handle and store it in database before returning it
         obj = ExperimentHandle(
             identifier,

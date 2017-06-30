@@ -255,7 +255,7 @@ class DefaultImageManager(datastore.DefaultObjectStore):
         if not prop_mime:
             raise ValueError('unsupported image type: ' + prop_name)
         # Create a new object identifier.
-        identifier = str(uuid.uuid4())
+        identifier = str(uuid.uuid4()).replace('-','')
         # The sub-folder to store the image is given by the first two
         # characters of the identifier.
         image_dir = self.get_directory(identifier)
@@ -441,7 +441,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             ]
 
 
-    def create_object(self, name, images, filename, options=None):
+    def create_object(self, name, images, filename, options=None, object_identifier=None):
         """Create an image group object with the given list of images. The
         file name specifies the location on local disk where the tar-file
         containing the image group files is located. The file will be copied
@@ -457,6 +457,8 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             Location of local file containing all images in the group
         options : list(dict('name':...,'value:...')), optional
             List of image group options. If None, default values will be used.
+        object_identifier : string
+            Unique object identifier, optional
 
         Returns
         -------
@@ -465,8 +467,11 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         """
         # Raise an exception if given image group is not valied.
         self.validate_group(images)
-        # Create a new object identifier.
-        identifier = str(uuid.uuid4())
+        # Create a new object identifier if none is given.
+        if object_identifier is None:
+            identifier = str(uuid.uuid4()).replace('-','')
+        else:
+            identifier = object_identifier
         # Create the initial set of properties.
         prop_filename = os.path.basename(os.path.normpath(filename))
         prop_mime = 'application/x-tar' if filename.endswith('.tar') else 'application/x-gzip'

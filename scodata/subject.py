@@ -209,7 +209,7 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
             raise ValueError('Unsupported file type: ' + file_type)
         return self.upload_freesurfer_archive(filename)
 
-    def upload_freesurfer_archive(self, filename):
+    def upload_freesurfer_archive(self, filename, object_identifier=None):
         """Create an anatomy object on local disk from a Freesurfer anatomy
         tar file. If the given file is a Freesurfer file it will be copied to
         the created subject's upload directory.
@@ -218,6 +218,8 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
         ----------
         filename : string
             Name of the (uploaded) file
+        object_identifier : string
+            Unique object identifier, optional
 
         Returns
         -------
@@ -244,7 +246,10 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
             raise ValueError('not a valid subject directory')
         # Create a new identifier. This identifier will be used as the
         # directory name.
-        identifier = str(uuid.uuid4())
+        if object_identifier is None:
+            identifier = str(uuid.uuid4()).replace('-', '')
+        else:
+            identifier = object_identifier
         subject_dir = os.path.join(self.directory, identifier)
         # Create the initial set of properties for the new anatomy object. The
         # name is derived from the filename minus any known extensions

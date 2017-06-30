@@ -200,7 +200,7 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         else:
             raise ValueError('unsupported file type: ' + prop_name)
         # Create a new object identifier.
-        identifier = str(uuid.uuid4())
+        identifier = str(uuid.uuid4()).replace('-','')
         # The object directory is given by the object identifier.
         object_dir = os.path.join(self.directory, identifier)
         # Create (sub-)directories for the uploaded and extracted data files.

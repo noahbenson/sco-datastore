@@ -63,3 +63,10 @@
 * Add optional Mime-type parameter for prediction attachments
 * Add MongoDBStore.clear_collection() to remove all objects in a collection
 * Remove attachment types
+
+### 0.6.1 - 2017-06-30
+
+* Add is_widget flag to ObjectHandle
+* Add missing is_model flag to ObjectHandle
+* Allow user-defined identifier for subjects and image groups
+* Change format of object identifier

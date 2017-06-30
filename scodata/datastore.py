@@ -180,6 +180,18 @@ class ObjectHandle(object):
         return False
 
     @property
+    def is_model(self):
+        """Flag indicating whether this object represents an model object.
+
+        Returns
+        -------
+        Boolean
+            True, if object is ModelHandle. By default the result is False
+            in the base class.
+        """
+        return False
+
+    @property
     def is_model_run(self):
         """Flag indicating whether this object represents an model description
         object.
@@ -187,7 +199,7 @@ class ObjectHandle(object):
         Returns
         -------
         Boolean
-            True, if object is ModelHandle. By default the result is False
+            True, if object is ModelRunHandle. By default the result is False
             in the base class.
         """
         return False
@@ -211,7 +223,20 @@ class ObjectHandle(object):
         Returns
         -------
         Boolean
-            True, if object is Subjecthandle. By default the result is False
+            True, if object is SubjectHandle. By default the result is False
+            in the base class.
+        """
+        return False
+
+    @property
+    def is_widget(self):
+        """Flag indicating whether this object represents a visualization
+        widget.
+
+        Returns
+        -------
+        Boolean
+            True, if object is WidgetHandle. By default the result is False
             in the base class.
         """
         return False
@@ -470,6 +495,7 @@ class ObjectStore(object):
             self.replace_object(obj)
         # Return object handle
         return obj
+
 
 class MongoDBStore(ObjectStore):
     """MongoDB Object Store - Abstract implementation of a data store that uses
