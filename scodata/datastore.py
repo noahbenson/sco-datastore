@@ -501,7 +501,7 @@ class MongoDBStore(ObjectStore):
     """MongoDB Object Store - Abstract implementation of a data store that uses
     MongoDB to store database objects. Implements all abstract methods of the
     super class. Object-specific implementations of this store need only to
-    implement the abstract method from_json() that creates an object instance
+    implement the abstract method from_dict() that creates an object instance
     from a Json representation in the database.
 
     Attributes
@@ -574,7 +574,7 @@ class MongoDBStore(ObjectStore):
         return self.collection.find({'_id': identifier, 'active' : True}).count() > 0
 
     @abstractmethod
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create a database object from a given Json document. Implementation
         depends on the type of object that is being stored.
 
@@ -613,7 +613,7 @@ class MongoDBStore(ObjectStore):
             query['active'] = True
         cursor = self.collection.find(query)
         if cursor.count() > 0:
-            return self.from_json(cursor.next())
+            return self.from_dict(cursor.next())
         else:
             return None
 
@@ -624,8 +624,8 @@ class MongoDBStore(ObjectStore):
         ----------
         db_object : (Sub-class of)ObjectHandle
         """
-        # Create object using the  to_json() method.
-        obj = self.to_json(db_object)
+        # Create object using the  to_dict() method.
+        obj = self.to_dict(db_object)
         obj['active'] = True
         self.collection.insert_one(obj)
 
@@ -663,7 +663,7 @@ class MongoDBStore(ObjectStore):
             if limit >= 0 and len(result) == limit:
                 break
             if offset < 0 or count >= offset:
-                result.append(self.from_json(document))
+                result.append(self.from_dict(document))
             count += 1
         return ObjectListing(result, offset, limit, coll.count())
 
@@ -678,11 +678,11 @@ class MongoDBStore(ObjectStore):
         """
         # To enable provenance traces objects are not actually deleted from the
         # database. Instead, their active flag is set to False.
-        obj = self.to_json(db_object)
+        obj = self.to_dict(db_object)
         obj['active'] = True
         self.collection.replace_one({'_id' : db_object.identifier, 'active' : True}, obj)
 
-    def to_json(self, db_obj):
+    def to_dict(self, db_obj):
         """Create a Json-like dictionary for objects managed by this object
         store.
 

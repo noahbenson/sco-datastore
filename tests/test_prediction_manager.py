@@ -28,7 +28,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
     def test_experiment_create(self):
         """Test creation of experiment objects."""
         # Create an model run from fake data
-        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id')
+        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id', [])
         # Assert that object is active and is_image property is true
         self.assertTrue(model_run.is_active)
         self.assertTrue(model_run.is_model_run)
@@ -51,7 +51,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
     def test_run_attachments(self):
         """Test attachments for model runs."""
         # Create an model run from fake data
-        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id')
+        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id', [])
         # Make sure that files can only be attached to successful model runs
         with self.assertRaises(ValueError):
             self.mngr.create_data_file_attachment(model_run.identifier, 'attachment', CSV_FILE_1)
@@ -62,7 +62,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
         # Make sure we can attach the file now
         self.mngr.create_data_file_attachment(model_run.identifier, 'attachment', CSV_FILE_1)
         # Read attached file. Content should be '1'
-        with open(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment'), 'r') as f:
+        with open(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment')[0], 'r') as f:
             self.assertEquals(f.read().strip(), '1')
         # Make sure the list of attachments for the model run is 1
         model_run = self.mngr.get_object(model_run.identifier)
@@ -70,7 +70,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
         # Overwrite the existing attachment
         self.mngr.create_data_file_attachment(model_run.identifier, 'attachment', CSV_FILE_2)
         # Read attached file. Content should be '1'
-        with open(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment'), 'r') as f:
+        with open(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment')[0], 'r') as f:
             self.assertEquals(f.read().strip(), '2')
         # Make sure the list of attachments for the model run is 1
         model_run = self.mngr.get_object(model_run.identifier)
@@ -78,7 +78,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
         # Delete attached file
         self.assertTrue(self.mngr.delete_data_file_attachment(model_run.identifier, 'attachment'))
         # Ensure that accessing a non-existent attachment returns None
-        self.assertIsNone(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment'))
+        self.assertIsNone(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment')[0])
         # Ensure that deleting a non-existent attachemnt return False attached file
         self.assertFalse(self.mngr.delete_data_file_attachment(model_run.identifier, 'attachment'))
         # Make sure the list of attachments for the model run is empty
@@ -87,7 +87,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
 
     def test_update_run_state(self):
         # Create an model run from fake data
-        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id')
+        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id', [])
         #
         # Set state to RUNNING
         #
@@ -121,7 +121,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
             self.mngr.update_state(model_run.identifier, state)
         # Create an model run and ensure that we can set state to success for
         # active run
-        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id')
+        model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id', [])
         model_run = self.mngr.update_state(model_run.identifier, predictions.ModelRunActive())
         state = predictions.ModelRunSuccess('preditcion-id')
         model_run = self.mngr.update_state(model_run.identifier, state)

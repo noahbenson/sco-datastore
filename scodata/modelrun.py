@@ -43,10 +43,10 @@ class Attachment(object):
         self.mime_type = mime_type
 
     @classmethod
-    def from_json(cls, document):
+    def from_dict(cls, document):
         return cls(document['id'], document['mimeType'])
 
-    def to_json(self):
+    def to_dict(self):
         return {
             'id' : self.identifier,
             'mimeType' : self.mime_type
@@ -66,7 +66,7 @@ class ModelRunState(object):
     FAILED, and SUCCESS.
     """
     @staticmethod
-    def from_json(json_obj):
+    def from_dict(json_obj):
         # Decide on type of returned object based on fact that failed states
         # have errors while success states have model output
         if json_obj['type'] == STATE_FAILED and 'errors' in json_obj:
@@ -123,7 +123,7 @@ class ModelRunState(object):
         return False
 
     @staticmethod
-    def to_json(obj):
+    def to_dict(obj):
         """Generate a JSON serialization for the run state object.
 
         Returns
@@ -261,6 +261,8 @@ class ModelRunHandle(datastore.DataObjectHandle):
     attachments : dict(Attachment)
         Dictionary of post-processing results that are associated with the model
         run
+    attachment_directory : string
+        Path to directory where run attachments are stored
     experiment_id : string
         Unique experiment object identifier
     model_id : string
@@ -335,6 +337,7 @@ class ModelRunHandle(datastore.DataObjectHandle):
             self.schedule = {RUN_CREATED : str(self.timestamp.isoformat())}
         else:
             self.schedule = schedule
+        self.attachment_directory = os.path.join(self.directory, 'attachments')
 
     @property
     def is_model_run(self):
@@ -400,26 +403,22 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # It is only possible to attach files to successful model run
         if not model_run.state.is_success:
             raise ValueError('cannot attach file to model run in state: ' + str(model_run.state))
-        # The attachment will be written to a directory with name resource_id
-        # in the data directory for the model_run. If the directory exists it
-        # will be overwritten
-        directory, local_name = os.path.split(
-            os.path.abspath(os.path.join(model_run.directory, resource_id))
+        # The attachment will be written to a file with name resource_id
+        # inside the model run's attachment directory. If the resource id
+        # contains path components we will create sub-folders for them. If the
+        # resource file exists it will be overwritten.
+        target = os.path.abspath(
+            os.path.join(model_run.attachment_directory, resource_id)
         )
+        directory, local_name = os.path.split(target)
         # Make sure that the given resource identifier leads to a sub-folder
         # of the model run's data directory
         if not directory.startswith(os.path.abspath(model_run.directory)):
             raise ValueError('invalid resource identifier: ' + resource_id)
-        # Delete directory if exists (only if it is not the home directory of
-        # the model run)
-        if not directory == model_run.directory:
-            if os.path.exists(directory):
-                shutil.rmtree(directory)
+        # Create any sub-folder that don't exist
+        if not os.path.exists(directory):
             os.makedirs(directory)
-        shutil.copyfile(
-            filename,
-            os.path.join(directory, os.path.basename(filename))
-        )
+        shutil.copyfile(filename, target)
         if mime_type is None:
             # Mime type is derived from the file name
             mime_type = 'text/plain'
@@ -538,21 +537,14 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # Ensure that attachment with given resource identifier exists.
         if not resource_id in model_run.attachments:
             return False
-        # Delete resource directory if exists and it is not the model run
-        # directory
-        directory, local_name = os.path.split(
-            os.path.join(model_run.directory, resource_id)
-        )
-        if os.path.exists(directory) and not model_run.directory == directory:
-            shutil.rmtree(directory)
-        else:
-            os.remove(os.path.join(model_run.directory, resource_id))
+        # Delete file on disk
+        os.remove(os.path.join(model_run.attachment_directory, resource_id))
         # Update model run information in the database
         del model_run.attachments[resource_id]
         self.replace_object(model_run)
         return True
 
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create model run object from JSON document retrieved from database.
 
         Parameters
@@ -572,17 +564,17 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # Create attachment descriptors
         attachments = {}
         for obj in document['attachments']:
-            attachment = Attachment.from_json(obj)
+            attachment = Attachment.from_dict(obj)
             attachments[attachment.identifier] = attachment
         # Create model run handle.
         return ModelRunHandle(
             identifier,
             document['properties'],
             directory,
-            ModelRunState.from_json(document['state']),
+            ModelRunState.from_dict(document['state']),
             document['experiment'],
             document['model'],
-            attribute.attributes_from_json(document['arguments']),
+            attribute.attributes_from_dict(document['arguments']),
             attachments=attachments,
             schedule=document['schedule'],
             timestamp=datetime.datetime.strptime(
@@ -619,14 +611,10 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             return None, None
         # Raise an exception if the attached resource is not a data file
         attachment = model_run.attachments[resource_id]
-        # The attached file is expected to be the only entry in the resource
-        # directory
-        directory, filename = os.path.split(
-            os.path.join(model_run.directory, resource_id)
-        )
-        return os.path.join(directory, filename), attachment.mime_type
+        filename = os.path.join(model_run.attachment_directory, resource_id)
+        return filename, attachment.mime_type
 
-    def to_json(self, model_run):
+    def to_dict(self, model_run):
         """Create a Json-like dictionary for a model run object. Extends the
         basic object with run state, arguments, and optional prediction results
         or error descriptions.
@@ -641,9 +629,9 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             Json-like object, i.e., dictionary.
         """
         # Get the basic Json object from the super class
-        json_obj = super(DefaultModelRunManager, self).to_json(model_run)
+        json_obj = super(DefaultModelRunManager, self).to_dict(model_run)
         # Add run state
-        json_obj['state'] = ModelRunState.to_json(model_run.state)
+        json_obj['state'] = ModelRunState.to_dict(model_run.state)
         # Add run scheduling Timestamps
         json_obj['schedule'] = model_run.schedule
         # Add experiment information
@@ -651,10 +639,10 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # Add model information
         json_obj['model'] = model_run.model_id
         # Transform dictionary of attributes into list of key-value pairs.
-        json_obj['arguments'] = attribute.attributes_to_json(model_run.arguments)
+        json_obj['arguments'] = attribute.attributes_to_dict(model_run.arguments)
         # Include attachments
         json_obj['attachments'] = [
-            attachment.to_json()
+            attachment.to_dict()
                 for attachment in model_run.attachments.values()
             ]
         return json_obj

@@ -228,7 +228,7 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         self.insert_object(obj)
         return obj
 
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create functional data object from JSON document retrieved from
         database.
 

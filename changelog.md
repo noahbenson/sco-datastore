@@ -70,3 +70,9 @@
 * Add missing is_model flag to ObjectHandle
 * Allow user-defined identifier for subjects and image groups
 * Change format of object identifier
+
+### 0.7.0 - 2017-07-01
+
+* Rename to_json/from_json to to_dict/from_dict
+* Change directory where model run attachments are stored
+* Updated unit tests to API changes

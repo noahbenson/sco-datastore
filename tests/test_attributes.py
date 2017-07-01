@@ -24,8 +24,8 @@ class TestAttributes(unittest.TestCase):
                 'description',
                 datatype
             )
-            from_def = attributes.AttributeDefinition.from_json(
-                attr_def.to_json()
+            from_def = attributes.AttributeDefinition.from_dict(
+                attr_def.to_dict()
             )
             self.assertEqual(attr_def.identifier, from_def.identifier)
             self.assertEqual(attr_def.name, from_def.name)

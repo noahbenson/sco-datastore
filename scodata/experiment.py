@@ -147,7 +147,7 @@ class DefaultExperimentManager(datastore.MongoDBStore):
         self.insert_object(obj)
         return obj
 
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create experiment object from JSON document retrieved from database.
 
         Parameters
@@ -220,7 +220,7 @@ class DefaultExperimentManager(datastore.MongoDBStore):
                     item.properties[PROPERTY_RUN_COUNT] = 0
         return result
 
-    def to_json(self, experiment):
+    def to_dict(self, experiment):
         """Create a Json-like object for an experiment. Extends the basic
         object with subject, image group, and (optional) functional data
         identifiers.
@@ -235,7 +235,7 @@ class DefaultExperimentManager(datastore.MongoDBStore):
             Json-like object, i.e., dictionary.
         """
         # Get the basic Json object from the super class
-        json_obj = super(DefaultExperimentManager, self).to_json(experiment)
+        json_obj = super(DefaultExperimentManager, self).to_dict(experiment)
         # Add associated object references
         json_obj['subject'] = experiment.subject_id
         json_obj['images'] = experiment.image_group_id

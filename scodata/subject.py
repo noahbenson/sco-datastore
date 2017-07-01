@@ -163,7 +163,7 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
             properties
         )
 
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create subject object from JSON document retrieved from database.
         Overwrites super class method since downloadable subject data is
         stored in a sub-folder of the object's directory.

@@ -282,7 +282,7 @@ class DefaultImageManager(datastore.DefaultObjectStore):
         self.insert_object(obj)
         return obj
 
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create image object from JSON document retrieved from database.
 
         Parameters
@@ -504,7 +504,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         self.insert_object(obj)
         return obj
 
-    def from_json(self, document):
+    def from_dict(self, document):
         """Create image group object from JSON document retrieved from database.
 
         Parameters
@@ -542,7 +542,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             properties,
             directory,
             images,
-            attribute.attributes_from_json(document['options']),
+            attribute.attributes_from_dict(document['options']),
             timestamp=datetime.datetime.strptime(
                 document['timestamp'],
                 '%Y-%m-%dT%H:%M:%S.%f'
@@ -603,7 +603,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         # Return object listing
         return datastore.ObjectListing(items, offset, limit, total_count)
 
-    def to_json(self, img_coll):
+    def to_dict(self, img_coll):
         """Create a Json-like dictionary for image group. Extends the basic
         object with an array of image identifiers.
 
@@ -617,7 +617,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             Json-like object, i.e., dictionary.
         """
         # Get the basic Json object from the super class
-        json_obj = super(DefaultImageGroupManager, self).to_json(img_coll)
+        json_obj = super(DefaultImageGroupManager, self).to_dict(img_coll)
         # Add list of images as Json array
         images = []
         for img_group in img_coll.images:
@@ -629,7 +629,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         json_obj['images'] = images
         # Transform dictionary of options into list of elements, one per typed
         # attribute in the options set.
-        json_obj['options'] = attribute.attributes_to_json(img_coll.options)
+        json_obj['options'] = attribute.attributes_to_dict(img_coll.options)
         return json_obj
 
     def update_object_options(self, identifier, options):

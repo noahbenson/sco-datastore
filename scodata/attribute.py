@@ -87,7 +87,7 @@ class AttributeDefinition(object):
         self.default = default
 
     @staticmethod
-    def from_json(document):
+    def from_dict(document):
         """Create attribute definition form Json-like object represenation.
 
         Parameters
@@ -107,11 +107,11 @@ class AttributeDefinition(object):
             document['id'],
             document['name'],
             document['description'],
-            AttributeType.from_json(document['type']),
+            AttributeType.from_dict(document['type']),
             default=default
         )
 
-    def to_json(self):
+    def to_dict(self):
         """Convert attribute definition into a dictionary.
 
         Returns
@@ -123,7 +123,7 @@ class AttributeDefinition(object):
             'id' : self.identifier,
             'name' : self.name,
             'description' : self.description,
-            'type' : self.data_type.to_json()
+            'type' : self.data_type.to_dict()
         }
         if not self.default is None:
             obj['default'] = self.default
@@ -150,7 +150,7 @@ class AttributeType(object):
         self.identifier = identifier
 
     @staticmethod
-    def from_json(document):
+    def from_dict(document):
         """Create data type definition form Json-like object represenation.
 
         Parameters
@@ -207,7 +207,7 @@ class AttributeType(object):
         """
         pass
 
-    def to_json(self):
+    def to_dict(self):
         """Convert attribute data type definition into a dictionary.
 
         Returns
@@ -274,7 +274,7 @@ class EnumType(AttributeType):
         if not value in self.values:
             raise ValueError('unknown enumeration value: ' + str(value))
 
-    def to_json(self):
+    def to_dict(self):
         """Convert enum data type definition into a dictionary. Overrides the
         super class method to add list of enumeration values.
 
@@ -283,7 +283,7 @@ class EnumType(AttributeType):
         dict
             Json-like dictionary representation of the attribute data type
         """
-        obj = super(EnumType, self).to_json()
+        obj = super(EnumType, self).to_dict()
         obj['values'] = self.values
         return obj
 
@@ -366,7 +366,7 @@ class ListType(AttributeType):
 #
 # ------------------------------------------------------------------------------
 
-def attributes_from_json(document):
+def attributes_from_dict(document):
     """Convert a Json representation of a set of attribute instances into a
     dictionary.
 
@@ -390,7 +390,7 @@ def attributes_from_json(document):
     return attributes
 
 
-def attributes_to_json(attributes):
+def attributes_to_dict(attributes):
     """Transform a dictionary of attribute instances into a list of Json
     objects, i.e., list of key-value pairs.
 

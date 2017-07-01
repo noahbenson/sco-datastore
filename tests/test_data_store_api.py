@@ -178,21 +178,35 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         # Create experiment prediction object
         #
-        model_run = self.api.experiments_predictions_create(experiment.identifier, 'Name', 'Model')
+        model_run = self.api.experiments_predictions_create(experiment.identifier, 'Model', [], 'Name')
         # Ensure that object is of expected type
         self.assertTrue(model_run.is_model_run)
         # Ensure that creating fMRI for unknown experiment returns None
-        self.assertIsNone(self.api.experiments_predictions_create('not-a-valid-identifier', 'Name', 'Model'))
+        self.assertIsNone(self.api.experiments_predictions_create('not-a-valid-identifier', 'Model', [], 'Name'))
         # Create second experiment and prediction with arguments
         exp2 = self.api.experiments_create(subject.identifier, img_grp.identifier, {'name':'Name'})
+        attrDefs = [
+            attributes.AttributeDefinition(
+                'gabor_orientations',
+                'gabor_orientations',
+                '',
+                attributes.FloatType()
+            ),
+            attributes.AttributeDefinition(
+                'max_eccentricity',
+                'max_eccentricity',
+                '',
+                attributes.IntType()
+            )
+        ]
         mr2 = self.api.experiments_predictions_create(
             exp2.identifier,
-            'Name',
             'Model',
-            [
+            attrDefs,
+            'Name',
+            arguments=[
                 {'name': 'gabor_orientations', 'value': 10},
-                {'name': 'max_eccentricity', 'value': 11},
-                {'name': 'normalized_pixels_per_degree', 'value': 0}
+                {'name': 'max_eccentricity', 'value': 11}
             ]
         )
         #
@@ -263,6 +277,29 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
             model_run.identifier,
             'attachment',
         ))
+        # Creating a model run with unknown parameter should raise ValueError
+        with self.assertRaises(ValueError):
+            self.api.experiments_predictions_create(
+                exp2.identifier,
+                'Model',
+                attrDefs,
+                'Name',
+                arguments=[
+                    {'name': 'gabor_orientations', 'value': 10},
+                    {'name': 'contrast_constants_by_label', 'value': 11}
+                ]
+            )
+        # Creating a model run with invalid parameter value should raise ValueError
+        with self.assertRaises(ValueError):
+            self.api.experiments_predictions_create(
+                exp2.identifier,
+                'Model',
+                attrDefs,
+                'Name',
+                arguments=[
+                    {'name': 'gabor_orientations', 'value': 'ten'}
+                ]
+            )
 
     def test_image_files_api(self):
         """Test all image file related methods of API."""
