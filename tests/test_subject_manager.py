@@ -32,14 +32,8 @@ class TestSubjectManagerMethods(unittest.TestCase):
         subject = self.mngr.upload_file(self.SUBJECT_FILE)
         # Ensure that the created object is active
         self.assertTrue(subject.is_active)
-        # Ensure that is_subject property s True
-        self.assertTrue(subject.is_subject)
-        # Ensure that other class type properties are false
-        self.assertFalse(subject.is_experiment)
-        self.assertFalse(subject.is_image)
-        self.assertFalse(subject.is_functional_data)
-        self.assertFalse(subject.is_model_run)
-        self.assertFalse(subject.is_image_group)
+        # Ensure that type is SUBJECT
+        self.assertEquals(subject.type, subjects.TYPE_SUBJECT)
         # Ensure that a file with the same name as the upload file exists in the
         # upload directory
         upload_file = os.path.join(SUBJECT_DIR, subject.identifier)

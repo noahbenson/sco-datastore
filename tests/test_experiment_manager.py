@@ -23,13 +23,7 @@ class TestExperimentManagerMethods(unittest.TestCase):
         experiment = self.mngr.create_object('subject-id', 'images-id', {'name':'NAME'})
         # Assert that object is active and is_image property is true
         self.assertTrue(experiment.is_active)
-        self.assertTrue(experiment.is_experiment)
-        # Ensure that other class type properties are false
-        self.assertFalse(experiment.is_functional_data)
-        self.assertFalse(experiment.is_image_group)
-        self.assertFalse(experiment.is_image)
-        self.assertFalse(experiment.is_model_run)
-        self.assertFalse(experiment.is_subject)
+        self.assertEquals(experiment.type, experiments.TYPE_EXPERIMENT)
         # Assert that getting the object will not throw an Exception
         identifier = experiment.identifier
         experiment = self.mngr.get_object(identifier)
@@ -59,3 +53,4 @@ class TestExperimentManagerMethods(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+type

@@ -31,13 +31,7 @@ class TestPredictionManagerMethods(unittest.TestCase):
         model_run = self.mngr.create_object('NAME', 'experiment-id', 'model-id', [])
         # Assert that object is active and is_image property is true
         self.assertTrue(model_run.is_active)
-        self.assertTrue(model_run.is_model_run)
-        # Ensure that other class type properties are false
-        self.assertFalse(model_run.is_functional_data)
-        self.assertFalse(model_run.is_image_group)
-        self.assertFalse(model_run.is_image)
-        self.assertFalse(model_run.is_experiment)
-        self.assertFalse(model_run.is_subject)
+        self.assertEquals(model_run.type, predictions.TYPE_MODEL_RUN)
         # Ensure that run state is IDLE
         self.assertTrue(model_run.state.is_idle)
         self.assertEquals(model_run.properties[datastore.PROPERTY_STATE], str(predictions.ModelRunIdle()))
@@ -60,7 +54,13 @@ class TestPredictionManagerMethods(unittest.TestCase):
         state = predictions.ModelRunSuccess('preditcion-id')
         model_run = self.mngr.update_state(model_run.identifier, state)
         # Make sure we can attach the file now
-        self.mngr.create_data_file_attachment(model_run.identifier, 'attachment', CSV_FILE_1)
+        run = self.mngr.create_data_file_attachment(model_run.identifier, 'attachment', CSV_FILE_1)
+        attach = run.attachments['attachment']
+        # Check for the filesize attribute
+        self.assertEquals(attach.filesize, os.path.getsize(CSV_FILE_1))
+        # Ensure that there is a file with namee attachement in the model run
+        # attachment directory
+        self.assertTrue(os.path.isfile(os.path.join(run.attachment_directory, 'attachment')))
         # Read attached file. Content should be '1'
         with open(self.mngr.get_data_file_attachment(model_run.identifier, 'attachment')[0], 'r') as f:
             self.assertEquals(f.read().strip(), '1')

@@ -23,6 +23,9 @@ DATA_DIRECTORY = 'data'
 # Folder for original upload file
 UPLOAD_DIRECTORY = 'upload'
 
+"""Unique type identifier for functional data resources."""
+TYPE_FUNCDATA = 'FUNCDATA'
+
 
 # ------------------------------------------------------------------------------
 #
@@ -80,11 +83,11 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
             self.data_directory,
             self.properties[datastore.PROPERTY_FILENAME]
         )
-
+        
     @property
-    def is_functional_data(self):
-        """Override the is_functional_data property of the base class."""
-        return True
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_FUNCDATA
 
     @property
     def upload_file(self):

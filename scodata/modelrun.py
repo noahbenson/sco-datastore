@@ -30,6 +30,9 @@ STATE_IDLE = 'IDLE'
 STATE_RUNNING = 'RUNNING'
 STATE_SUCCESS = 'SUCCESS'
 
+"""Unique model run resource type identifier."""
+TYPE_MODEL_RUN = 'MODEL_RUN'
+
 
 # ------------------------------------------------------------------------------
 #
@@ -38,18 +41,20 @@ STATE_SUCCESS = 'SUCCESS'
 # ------------------------------------------------------------------------------
 
 class Attachment(object):
-    def __init__(self, identifier, mime_type):
+    def __init__(self, identifier, mime_type, filesize):
         self.identifier = identifier
         self.mime_type = mime_type
+        self.filesize = filesize
 
     @classmethod
     def from_dict(cls, document):
-        return cls(document['id'], document['mimeType'])
+        return cls(document['id'], document['mimeType'], document['filesize'])
 
     def to_dict(self):
         return {
             'id' : self.identifier,
-            'mimeType' : self.mime_type
+            'mimeType' : self.mime_type,
+            'filesize' : self.filesize
         }
 
 
@@ -133,7 +138,7 @@ class ModelRunState(object):
         """
         # Have text description of state in Json object (for readability)
         json_obj = {'type' : repr(obj)}
-        # Add state-specific elements
+        # Add state-specific elementsTYPE_MODEL_RUN
         if obj.is_failed:
             json_obj['errors'] = obj.errors
         elif obj.is_success:
@@ -340,9 +345,9 @@ class ModelRunHandle(datastore.DataObjectHandle):
         self.attachment_directory = os.path.join(self.directory, 'attachments')
 
     @property
-    def is_model_run(self):
-        """Override the is_model_run property of the base class."""
-        return True
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_MODEL_RUN
 
 
 # ------------------------------------------------------------------------------
@@ -378,6 +383,10 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         identified by the resource identifier. If a resource with the given
         identifier already exists it will be overwritten.
 
+        This operation wil copy the file 'filename' into the attachments
+        directory for the model run with name 'resource_id'. If the resource id
+        is not a valid file name an exception will be thrown.
+
         Parameters
         ----------
         identifier : string
@@ -411,13 +420,13 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
             os.path.join(model_run.attachment_directory, resource_id)
         )
         directory, local_name = os.path.split(target)
-        # Make sure that the given resource identifier leads to a sub-folder
-        # of the model run's data directory
-        if not directory.startswith(os.path.abspath(model_run.directory)):
+        # Make sure that the given resource identifier does not result in the
+        # file bein palced in a directory other than the attachments directory.
+        if directory != model_run.attachment_directory:
             raise ValueError('invalid resource identifier: ' + resource_id)
-        # Create any sub-folder that don't exist
-        if not os.path.exists(directory):
-            os.makedirs(directory)
+        # Create the attachments directory if it doesn't exist
+        if not os.path.exists(model_run.attachment_directory):
+            os.makedirs(model_run.attachment_directory)
         shutil.copyfile(filename, target)
         if mime_type is None:
             # Mime type is derived from the file name
@@ -437,7 +446,8 @@ class DefaultModelRunManager(datastore.DefaultObjectStore):
         # Update model run information in the database
         model_run.attachments[resource_id] = Attachment(
             resource_id,
-            mime_type
+            mime_type,
+            os.path.getsize(target)
         )
         self.replace_object(model_run)
         # Return modified model run

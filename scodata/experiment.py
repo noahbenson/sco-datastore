@@ -17,6 +17,9 @@ import datastore
 # Read-only property for model run count
 PROPERTY_RUN_COUNT = 'runcount'
 
+"""Unique identifier for experiment resources."""
+TYPE_EXPERIMENT = 'EXPERIMENT'
+
 
 # ------------------------------------------------------------------------------
 #
@@ -71,9 +74,9 @@ class ExperimentHandle(datastore.ObjectHandle):
         self.fmri_data_id = fmri_data_id
 
     @property
-    def is_experiment(self):
-        """Override the is_experiment property of the base class."""
-        return True
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_EXPERIMENT
 
 
 # ------------------------------------------------------------------------------

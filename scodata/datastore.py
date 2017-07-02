@@ -5,7 +5,7 @@ results of model runs.
  Objects may be stored using different database backends.
 """
 
-from abc import abstractmethod
+from abc import abstractmethod, abstractproperty
 import datetime
 import os
 import pymongo
@@ -52,8 +52,8 @@ class ObjectHandle(object):
 
     For each class of objects accessible in the SCO Data Store and sub-class
     of object handle is generated. To allow type checking of objects include
-    a is_type property in this base class and set the return value to True in
-    the aub-class.
+    a type property in this base class and set the return value to a unique
+    string for each class.
 
     Attributes
     ----------
@@ -71,28 +71,16 @@ class ObjectHandle(object):
 
     Properties
     ----------
-    is_experiment : Booloean
-        True, if object is ExperimentHandle.
-    is_functional_data : Boolean
-        True, if object is FunctionalDataHandle.
-    is_image : Boolean
-        True, if object is ImageHandle.
-    is_image_group : Boolean
-        True, if object is ImageGroupHandle.
-    is_model : Boolean
-        True, if object is ModelHandle.
-    is_model_run : Boolean
-        True, if object is ModelRunHandle.
-    is_subject : Boolean
-        True, if object is SubjectHandle.
+    type : string
+        Object type identifier
     """
     def __init__(self, identifier, timestamp, properties, is_active=True):
         """Initialize identifier, type, timestamp, and properties. Raises an
         exception if the given type is not a valid object type or if the
         manadatory property NAME is missing.
 
-        For each object type a is_type() method should be added to this base
-        class implementation.
+        For each object type a type property should be implemented to uniquely
+        identify the resource type.
 
         Parameters
         ----------
@@ -129,117 +117,16 @@ class ObjectHandle(object):
         """
         return self.properties[PROPERTY_NAME]
 
-    @property
-    def is_experiment(self):
-        """Flag indicating whether this object represents an experiment object.
+    @abstractproperty
+    def type(self):
+        """Return unique type identifier for handle. Each implementing sub-class
+        should return a unique identifier
 
         Returns
         -------
-        Boolean
-            True, if object is ExperimentHandle. By default the result is False
-            in the base class.
+        string
         """
-        return False
-
-    @property
-    def is_functional_data(self):
-        """Flag indicating whether this object represents a functional MRI data
-        object.
-
-        Returns
-        -------
-        Boolean
-            True, if object is FunctionalDataHadnle. By default the result is
-            False in the base class.
-        """
-        return False
-
-    @property
-    def is_image(self):
-        """Flag indicating whether this object represents a single image file
-        object.
-
-        Returns
-        -------
-        Boolean
-            True, if object is ImageHandle.  By default the result is False
-            in the base class.
-        """
-        return False
-
-    @property
-    def is_image_group(self):
-        """Flag indicating whether this object represents an image group object.
-
-        Returns
-        -------
-        Boolean
-            True, if object isImageGroupHandle. By default the result is False
-            in the base class.
-        """
-        return False
-
-    @property
-    def is_model(self):
-        """Flag indicating whether this object represents an model object.
-
-        Returns
-        -------
-        Boolean
-            True, if object is ModelHandle. By default the result is False
-            in the base class.
-        """
-        return False
-
-    @property
-    def is_model_run(self):
-        """Flag indicating whether this object represents an model description
-        object.
-
-        Returns
-        -------
-        Boolean
-            True, if object is ModelRunHandle. By default the result is False
-            in the base class.
-        """
-        return False
-
-    @property
-    def is_model_run(self):
-        """Flag indicating whether this object represents an prediction object.
-
-        Returns
-        -------
-        Boolean
-            True, if object is Predictionhandle. By default the result is False
-            in the base class.
-        """
-        return False
-
-    @property
-    def is_subject(self):
-        """Flag indicating whether this object represents an anatomy subject.
-
-        Returns
-        -------
-        Boolean
-            True, if object is SubjectHandle. By default the result is False
-            in the base class.
-        """
-        return False
-
-    @property
-    def is_widget(self):
-        """Flag indicating whether this object represents a visualization
-        widget.
-
-        Returns
-        -------
-        Boolean
-            True, if object is WidgetHandle. By default the result is False
-            in the base class.
-        """
-        return False
+        pass
 
 
 class DataObjectHandle(ObjectHandle):

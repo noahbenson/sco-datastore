@@ -46,13 +46,7 @@ class TestImageManagerMethods(unittest.TestCase):
                     img = self.mngr_images.create_object(tmp_file)
                     # Assert that object is active and is_image property is true
                     self.assertTrue(img.is_active)
-                    self.assertTrue(img.is_image)
-                    # Ensure that other class type properties are false
-                    self.assertFalse(img.is_experiment)
-                    self.assertFalse(img.is_image_group)
-                    self.assertFalse(img.is_functional_data)
-                    self.assertFalse(img.is_model_run)
-                    self.assertFalse(img.is_subject)
+                    self.assertEquals(img.type, images.TYPE_IMAGE)
                     img_list.append(img.identifier)
                 else:
                     with self.assertRaises(ValueError):
@@ -76,13 +70,7 @@ class TestImageManagerMethods(unittest.TestCase):
         img_group = self.mngr_groups.create_object('NAME', group, tmp_file)
         # Ensure that object is active and is_image_group property is true
         self.assertTrue(img_group.is_active)
-        self.assertTrue(img_group.is_image_group)
-        # Ensure that other class type properties are false
-        self.assertFalse(img_group.is_experiment)
-        self.assertFalse(img_group.is_image)
-        self.assertFalse(img_group.is_functional_data)
-        self.assertFalse(img_group.is_model_run)
-        self.assertFalse(img_group.is_subject)
+        self.assertEquals(img_group.type, images.TYPE_IMAGE_GROUP)
         # Get image group from database and ensure that there are four files
         # in the list, one for each of the images in img_list
         img_group = self.mngr_groups.get_object(img_group.identifier)

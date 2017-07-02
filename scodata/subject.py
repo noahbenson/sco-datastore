@@ -37,6 +37,9 @@ FILE_TYPE_FREESURFER_DIRECTORY = 'FREESURFER-DIRECTORY'
 # List of supported file types
 FILE_TYPES = [FILE_TYPE_FREESURFER_DIRECTORY]
 
+"""Unique type identifier for subject resources."""
+TYPE_SUBJECT = 'SUBJECT'
+
 
 # ------------------------------------------------------------------------------
 #
@@ -100,11 +103,6 @@ te a brain anatomy object. Each object has
         self.upload_directory = os.path.join(directory, UPLOAD_DIRECTORY)
 
     @property
-    def is_subject(self):
-        """Override the is_subject property of the base class."""
-        return True
-
-    @property
     def data_file(self):
         """Original uploaded data file the subject was created from.
 
@@ -114,6 +112,11 @@ te a brain anatomy object. Each object has
             Reference to file on local disk
         """
         return os.path.join(self.upload_directory, self.properties[datastore.PROPERTY_FILENAME])
+
+    @property
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_SUBJECT
 
 
 # ------------------------------------------------------------------------------

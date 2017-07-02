@@ -29,6 +29,12 @@ VALID_IMGFILE_SUFFIXES = {
     '.gif' : 'image/gif'}
 
 
+"""Unique identifier for image resource handles."""
+TYPE_IMAGE = 'IMAGE'
+TYPE_IMAGE_GROUP = 'IMAGE_GROUP'
+TYPE_PREDICTION_IMAGE_SET = 'PREDICTION_IMAGE_SET'
+
+
 # ------------------------------------------------------------------------------
 #
 # Images and Image Collection Classes
@@ -75,14 +81,14 @@ class ImageHandle(datastore.DataObjectHandle):
         )
 
     @property
-    def is_image(self):
-        """Override the is_image property of the base class."""
-        return True
-
-    @property
     def image_file(self):
         """Reference to image data file on disk."""
         return os.path.join(self.directory, self.properties[datastore.PROPERTY_FILENAME])
+
+    @property
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_IMAGE
 
 
 class ImageGroupHandle(datastore.DataObjectHandle):
@@ -136,14 +142,60 @@ class ImageGroupHandle(datastore.DataObjectHandle):
         self.options = options
 
     @property
-    def is_image_group(self):
-        """Override the is_image_group property of the base class."""
-        return True
-
-    @property
     def data_file(self):
         """Reference to image group archive data file on disk."""
         return os.path.join(self.directory, self.properties[datastore.PROPERTY_FILENAME])
+
+    @property
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_IMAGE_GROUP
+
+
+class PredictionImageSetHandle(datastore.ObjectHandle):
+    """A list of images that are generated as result of a successful model run.
+    For each input image to the model a set of output images is maintained.
+    Images are standard image resources. The images in an output set for an
+    input image are expected to be uniquely identifiable based on some
+    combination of the object properties.
+
+    Attributes
+    ----------
+    images : list(PredictionImageSet)
+        List of image sets
+    """
+    def __init__(self, identifier, properties, images, timestamp=None, is_active=True):
+        """Initialize the image group handle. The directory references a
+        directory on the local disk that contains the tar-file with all images.
+        The name of that tar-file is part of the property set.
+
+        Parameters
+        ----------
+        identifier : string
+            Unique object identifier
+        properties : Dictionary
+            Dictionary of subject specific properties
+        images : list(PredictionImageSet)
+            List of image sets
+        timestamp : datetime, optional
+            Time stamp of object creation (UTC).
+        is_active : Boolean, optional
+            Flag indicating whether the object is active or has been deleted.
+        """
+        # Initialize super class
+        super(PredictionImageSetHandle, self).__init__(
+            identifier,
+            timestamp,
+            properties,
+            is_active=is_active
+        )
+        # Initialize local object variables
+        self.images = images
+
+    @property
+    def type(self):
+        """Override the type method of the base class."""
+        return TYPE_PREDICTION_IMAGE_SET
 
 
 class GroupImage(object):
@@ -178,6 +230,31 @@ class GroupImage(object):
         self.folder = folder
         self.name = name
         self.filename = filename
+
+
+class PredictionImageSet(object):
+    """Set of generated images for an input image in a successful model run.
+    Maintains references to the input image and all of the outputs.
+
+    Attributes
+    ----------
+    input_image : ImageHandle
+        Handle for input image
+    output_images : list(ImageHandle)
+        List of output images that were generated for an input image
+    """
+    def __init__(self, input_image, output_images):
+        """Set the resource handles for input and output images.
+
+        Parameters
+        ----------
+        input_image : ImageHandle
+            Handle for input image
+        output_images : list(ImageHandle)
+            List of output images that were generated for an input image
+        """
+        self.input_image = input_image
+        self.output_images = output_images
 
 
 # ------------------------------------------------------------------------------
@@ -680,6 +757,76 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
                 raise ValueError('Duplicate images in group: ' + key)
             else:
                 image_ids.add(key)
+
+
+class DefaultPredictionImageSetManager(datastore.MongoDBStore):
+    """Default data store backend for prediction image sets that uses MongoDB
+    as storage backend.
+    """
+    def __init__(self, mongo_collection, image_manager):
+        """Initialize the MongoDB collection and the image manager to retrieve
+        set images.
+
+        Parameters
+        ----------
+        mongo_collection : Collection
+            Collection in MongoDB storing image group information
+        image_manager : DefaultImageManager
+            Manager for image files
+        """
+        # Initialize the super class
+        super(DefaultPredictionImageSetManager, self).__init__(mongo_collection)
+        # Initialize image manager reference
+        self.image_manager = image_manager
+
+
+    def create_object(self, name, filename):
+        """Create a prediction image set list from a given tar-file. For each
+        image in the tar-file an image resource will be created.
+
+        Parameters
+        ----------
+        name : string
+            User-provided name for the image group.
+        filename : string
+            Location of local tar-file containing all images in the set
+
+        Returns
+        -------
+        PredictionImageSetHandle
+            Object handle for created prediction image set
+        """
+        pass
+
+    def from_dict(self, document):
+        """Create a prediction image set resource from a dictionary
+        serialization.
+
+        Parameters
+        ----------
+        document : dict
+            Dictionary serialization of the resource
+
+        Returns
+        -------
+        PredictionImageSetHandle
+            Handle for prediction image set
+        """
+        pass
+
+    def to_dict(self, img_set):
+        """Create a dictionary serialization for a prediction image set.
+
+        Parameters
+        ----------
+        img_set : PredictionImageSet
+
+        Returns
+        -------
+        dict
+            Dictionary serialization of the resource
+        """
+        pass
 
 
 # ------------------------------------------------------------------------------

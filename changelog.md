@@ -76,3 +76,9 @@
 * Rename to_json/from_json to to_dict/from_dict
 * Change directory where model run attachments are stored
 * Updated unit tests to API changes
+
+### 0.8.0 - 2017-07-02
+
+* Add prediction image set resource and resource manager
+* Add file size to attachments
+* Replace is_type flags for ObjectHandle with type() method

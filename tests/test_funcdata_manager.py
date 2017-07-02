@@ -34,13 +34,7 @@ class TestFuncDataManagerMethods(unittest.TestCase):
         fmri = self.mngr.create_object(tmp_file)
         # Assert that object is active and is_functional property is true
         self.assertTrue(fmri.is_active)
-        self.assertTrue(fmri.is_functional_data)
-        # Ensure that other class type properties are false
-        self.assertFalse(fmri.is_experiment)
-        self.assertFalse(fmri.is_image_group)
-        self.assertFalse(fmri.is_image)
-        self.assertFalse(fmri.is_model_run)
-        self.assertFalse(fmri.is_subject)
+        self.assertEquals(fmri.type, funcdata.TYPE_FUNCDATA)
         # Assert that getting the object will not throw an Exception
         self.assertEqual(self.mngr.get_object(fmri.identifier).identifier, fmri.identifier)
 

@@ -10,6 +10,13 @@ import scodata.attribute as attributes
 import scodata.datastore as datastore
 import scodata.modelrun as prediction
 
+from scodata.experiment import TYPE_EXPERIMENT
+from scodata.funcdata import TYPE_FUNCDATA
+from scodata.image import TYPE_IMAGE, TYPE_IMAGE_GROUP
+from scodata.modelrun import TYPE_MODEL_RUN
+from scodata.subject import TYPE_SUBJECT
+
+
 API_DIR = '/tmp/sco'
 DATA_DIR = './data'
 CSV_FILE = './data/csv/attachment1.csv'
@@ -46,7 +53,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         experiment = self.api.experiments_create(subject.identifier, img_grp.identifier, {'name':'Name'})
         # Ensure it is of expected type
-        self.assertTrue(experiment.is_experiment)
+        self.assertEquals(experiment.type, TYPE_EXPERIMENT)
         # Ensure that creating experiment with missing subject or image group
         # raises an Exception
         with self.assertRaises(ValueError):
@@ -58,7 +65,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         experiment = self.api.experiments_get(experiment.identifier)
         # Ensure it is of expected type
-        self.assertTrue(experiment.is_experiment)
+        self.assertEquals(experiment.type, TYPE_EXPERIMENT)
         # Ensure that get experiment with invalid identifier is None
         self.assertIsNone(self.api.experiments_get('not-a-valid-identifier'))
         #
@@ -129,7 +136,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         fmri = self.api.experiments_fmri_create(experiment.identifier, self.FMRI_FILE)
         # Ensure that object is of expected type
-        self.assertTrue(fmri.is_functional_data)
+        self.assertEquals(fmri.type, TYPE_FUNCDATA)
         # Ensure that creating fMRI for unknown experiment returns None
         self.assertIsNone(self.api.experiments_fmri_create('not-a-valid-identifier', self.FMRI_FILE))
         #
@@ -137,7 +144,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         fmri = self.api.experiments_fmri_get(experiment.identifier)
         # Ensure that object is of expected type
-        self.assertTrue(fmri.is_functional_data)
+        self.assertEquals(fmri.type, TYPE_FUNCDATA)
         #
         # Download
         #
@@ -180,7 +187,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         model_run = self.api.experiments_predictions_create(experiment.identifier, 'Model', [], 'Name')
         # Ensure that object is of expected type
-        self.assertTrue(model_run.is_model_run)
+        self.assertEquals(model_run.type, TYPE_MODEL_RUN)
         # Ensure that creating fMRI for unknown experiment returns None
         self.assertIsNone(self.api.experiments_predictions_create('not-a-valid-identifier', 'Model', [], 'Name'))
         # Create second experiment and prediction with arguments
@@ -214,7 +221,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         model_run = self.api.experiments_predictions_get(experiment.identifier, model_run.identifier)
         # Ensure object is of expected type
-        self.assertTrue(model_run.is_model_run)
+        self.assertEquals(model_run.type, TYPE_MODEL_RUN)
         # Ensure invalud experiment and prediction combination is None
         self.assertIsNone(self.api.experiments_predictions_get(experiment.identifier, mr2.identifier))
         self.assertIsNone(self.api.experiments_predictions_get(exp2.identifier, model_run.identifier))
@@ -308,7 +315,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         #
         img = self.api.images_create(self.IMAGE_FILE)
         # Ensure that the created object is an image file
-        self.assertTrue(img.is_image)
+        self.assertEquals(img.type, TYPE_IMAGE)
         # Ensure that creating image with invalid suffix raises Exception
         with self.assertRaises(ValueError):
             self.api.images_create(self.NON_IMAGE_FILE)
@@ -316,7 +323,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         # Get image and ensure that it is still of expected type
         #
         img = self.api.image_files_get(img.identifier)
-        self.assertTrue(img.is_image)
+        self.assertEquals(img.type, TYPE_IMAGE)
         # Ensure that getting an image with unknown identifier is None
         self.assertIsNone(self.api.image_files_get('not-a-valid-identifier'))
         #
@@ -365,10 +372,10 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         # Create image group object from file
         img_grp = self.api.images_create(self.IMAGE_GROUP_FILE)
         # Ensure that the created object is an image group
-        self.assertTrue(img_grp.is_image_group)
+        self.assertEquals(img_grp.type, TYPE_IMAGE_GROUP)
         # Get image group and ensure that it is still of expected type
         img_grp = self.api.image_groups_get(img_grp.identifier)
-        self.assertTrue(img_grp.is_image_group)
+        self.assertEquals(img_grp.type, TYPE_IMAGE_GROUP)
         # Ensure that getting an image group with unknown identifier is None
         self.assertIsNone(self.api.image_groups_get('not-a-valid-identifier'))
         # Ensure that the list of image groups contains one element
@@ -425,10 +432,10 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         # Create temp subject file
         subject = self.api.subjects_create(self.SUBJECT_FILE)
         # Ensure that the created object is a subject
-        self.assertTrue(subject.is_subject)
+        self.assertEquals(subject.type, TYPE_SUBJECT)
         # Get subject and ensure that it is still a subject
         subject = self.api.subjects_get(subject.identifier)
-        self.assertTrue(subject.is_subject)
+        self.assertEquals(subject.type, TYPE_SUBJECT)
         # Ensure that getting a subject with unknown identifier is None
         self.assertIsNone(self.api.subjects_get('not-a-valid-identifier'))
         # Ensure that the list of subjects contains one element
