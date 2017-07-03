@@ -660,7 +660,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
         Returns
         -------
         ObjectListing
-            Listing og group images or None if image group does not exist
+            Listing of group images or None if image group does not exist
         """
         # Get image group to ensure that it exists. The object contains the full
         # list of group images
