@@ -82,3 +82,8 @@
 * Add prediction image set resource and resource manager
 * Add file size to attachments
 * Replace is_type flags for ObjectHandle with type() method
+
+### 0.9.0 - 2017-07-11
+
+* Add read only property for data store resources
+* Create upload subject and image group scripts

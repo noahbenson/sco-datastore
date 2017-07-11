@@ -518,7 +518,7 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             ]
 
 
-    def create_object(self, name, images, filename, options=None, object_identifier=None):
+    def create_object(self, name, images, filename, options=None, object_identifier=None, read_only=False):
         """Create an image group object with the given list of images. The
         file name specifies the location on local disk where the tar-file
         containing the image group files is located. The file will be copied
@@ -536,6 +536,8 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             List of image group options. If None, default values will be used.
         object_identifier : string
             Unique object identifier, optional
+        read_only : boolean, optional
+            Optional value for the read-only property
 
         Returns
         -------
@@ -558,6 +560,8 @@ class DefaultImageGroupManager(datastore.DefaultObjectStore):
             datastore.PROPERTY_FILESIZE : os.path.getsize(filename),
             datastore.PROPERTY_MIMETYPE : prop_mime
         }
+        if read_only:
+            properties[datastore.PROPERTY_READONLY] = True
         # Directories are simply named by object identifier
         directory = os.path.join(self.directory, identifier)
         # Create the directory if it doesn't exists

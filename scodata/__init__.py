@@ -145,6 +145,8 @@ class SCODataStore(object):
         moment, this has no impact on other database objects that reference the
         experiment.
 
+        Raises ValueError if an attempt is made to delete a read-only resource.
+
         Parameters
         ----------
         experiment_id : string
@@ -196,6 +198,8 @@ class SCODataStore(object):
 
     def experiments_fmri_delete(self, experiment_id):
         """Delete fMRI data object associated with given experiment.
+
+        Raises ValueError if an attempt is made to delete a read-only resource.
 
         Parameters
         ----------
@@ -459,6 +463,8 @@ class SCODataStore(object):
 
     def experiments_predictions_delete(self, experiment_id, run_id, erase=False):
         """Delete given prediction for experiment.
+
+        Raises ValueError if an attempt is made to delete a read-only resource.
 
         Parameters
         ----------
@@ -773,6 +779,8 @@ class SCODataStore(object):
         """Delete image object with given identifier. At the moment, this has no
         impact on objects referencing the image.
 
+        Raises ValueError if an attempt is made to delete a read-only resource.
+
         Parameters
         ----------
         image_id : string
@@ -867,6 +875,8 @@ class SCODataStore(object):
     def image_groups_delete(self, image_group_id):
         """Delete image group object with given identifier. At the moment, this
         has no impact on objects referencing the image group.
+
+        Raises ValueError if an attempt is made to delete a read-only resource.
 
         Parameters
         ----------
@@ -1041,6 +1051,8 @@ class SCODataStore(object):
     def subjects_delete(self, subject_id):
         """Delete subject with given identifier in the database. At the moment,
         this has no impact on other database objects that reference the subject.
+
+        Raises ValueError if an attempt is made to delete a read-only resource.
 
         Parameters
         ----------

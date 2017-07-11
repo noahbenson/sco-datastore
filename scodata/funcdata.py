@@ -83,7 +83,7 @@ class FunctionalDataHandle(datastore.DataObjectHandle):
             self.data_directory,
             self.properties[datastore.PROPERTY_FILENAME]
         )
-        
+
     @property
     def type(self):
         """Override the type method of the base class."""
@@ -175,7 +175,7 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
             properties
         )
 
-    def create_object(self, filename):
+    def create_object(self, filename, read_only=False):
         """Create a functional data object for the given file. Expects the file
         to be a valid functional data file. Expects exactly one file that has
         suffix mgh/mgz or nii/nii.gz.
@@ -184,6 +184,8 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
         ----------
         filename : string
             Name of the (uploaded) file
+        read_only : boolean, optional
+            Optional value for the read-only property
 
         Returns
         -------
@@ -222,6 +224,8 @@ class DefaultFunctionalDataManager(datastore.DefaultObjectStore):
             datastore.PROPERTY_MIMETYPE : prop_mime,
             datastore.PROPERTY_FUNCDATAFILE : func_data_file
         }
+        if read_only:
+            properties[datastore.PROPERTY_READONLY] = True
         # Create object handle and store it in database before returning it
         obj = FunctionalDataHandle(
             identifier,

@@ -35,6 +35,8 @@ PROPERTY_MIMETYPE = 'mimetype'
 PROPERTY_MODEL = 'model'
 # Descriptive name (mandatory for all database objects)
 PROPERTY_NAME = 'name'
+# Objects are read-only and cannot be deleted
+PROPERTY_READONLY = 'readOnly'
 # Object state
 PROPERTY_STATE = 'state'
 
@@ -236,7 +238,7 @@ class ObjectStore(object):
             List of manadatory and immutable properties
         """
         # List of properties that caannot be updated
-        self.immutable_properties = set()
+        self.immutable_properties = set([PROPERTY_READONLY])
         # List of properties that are mandatory for all object in the object
         # store.
         self.mandatory_properties = set([PROPERTY_NAME])
@@ -417,6 +419,9 @@ class MongoDBStore(ObjectStore):
         """Delete the entry with given identifier in the database. Returns the
         handle for the deleted object or None if object identifier is unknown.
 
+        If the read-only property of the object is set to true a ValueError is
+        raised.
+
         Parameters
         ----------
         identifier : string
@@ -432,14 +437,19 @@ class MongoDBStore(ObjectStore):
         # Get object to ensure that it exists.
         db_object = self.get_object(identifier)
         # Set active flag to False if object exists.
-        if not db_object is None:
-            if erase:
-                # Erase object from database
-                self.collection.delete_many({"_id": identifier})
-            else:
-                # Delete object with given identifier by setting active flag
-                # to False
-                self.collection.update_one({"_id": identifier}, {'$set' : {'active' : False}})
+        if db_object is None:
+            return None
+        # Check whether the read-only property is set to true
+        if PROPERTY_READONLY in db_object.properties:
+            if db_object.properties[PROPERTY_READONLY]:
+                raise ValueError('cannot delete read-only resource')
+        if erase:
+            # Erase object from database
+            self.collection.delete_many({"_id": identifier})
+        else:
+            # Delete object with given identifier by setting active flag
+            # to False
+            self.collection.update_one({"_id": identifier}, {'$set' : {'active' : False}})
         # Return retrieved object or None if it didn't exist.
         return db_object
 

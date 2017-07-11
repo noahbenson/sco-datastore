@@ -212,7 +212,7 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
             raise ValueError('Unsupported file type: ' + file_type)
         return self.upload_freesurfer_archive(filename)
 
-    def upload_freesurfer_archive(self, filename, object_identifier=None):
+    def upload_freesurfer_archive(self, filename, object_identifier=None, read_only=False):
         """Create an anatomy object on local disk from a Freesurfer anatomy
         tar file. If the given file is a Freesurfer file it will be copied to
         the created subject's upload directory.
@@ -223,6 +223,8 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
             Name of the (uploaded) file
         object_identifier : string
             Unique object identifier, optional
+        read_only : boolean, optional
+            Optional value for the read-only property
 
         Returns
         -------
@@ -272,6 +274,8 @@ class DefaultSubjectManager(datastore.DefaultObjectStore):
             datastore.PROPERTY_MIMETYPE : prop_mime,
             datastore.PROPERTY_NAME : prop_name
         }
+        if read_only:
+            properties[datastore.PROPERTY_READONLY] = True
         # Create the directory for the anatomy object, the unpacked data files
         # and the original uploaded file (for download).
         os.mkdir(subject_dir)
