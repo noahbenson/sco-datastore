@@ -1,8 +1,5 @@
 # Standard Cortical Observer - Data Store
 
-Data storea nd API to access resources (e.g. images, subject anatomies) managed
-by the Standard Cortical Observer.
+Data store API for primary data objects (i.e. experiments, functional data, predictions, images, and subject anatomies) that are managed and manipulated by the Standard Cortical Observer.
 
-The API is intended to provide access to resources that are input to run a
-predictive model (i.e., subject, images, experiments, and functional data) as
-well as outputs from model runs (i.e., predictions).
+The API is a standalone library that provides access to resources that are used as input to run a predictive model and that are generated as output from model runs. The library can be used in an offline setting to manipulate SCO resources without the need to communicate via a Web service.
