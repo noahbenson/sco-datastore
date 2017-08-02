@@ -238,23 +238,47 @@ class PredictionImageSet(object):
 
     Attributes
     ----------
-    input_image : ImageHandle
-        Handle for input image
-    output_images : list(ImageHandle)
-        List of output images that were generated for an input image
+    input_image : string
+        Identifier for input image
+    output_images : list(string)
+        Identifier for output images
     """
     def __init__(self, input_image, output_images):
-        """Set the resource handles for input and output images.
+        """Set the identifier for input and output images.
 
         Parameters
         ----------
-        input_image : ImageHandle
-            Handle for input image
-        output_images : list(ImageHandle)
-            List of output images that were generated for an input image
+        input_image : string
+            Identifier for input image
+        output_images : list(string)
+            Identifier for output images
         """
         self.input_image = input_image
         self.output_images = output_images
+
+    @staticmethod
+    def from_dict(doc):
+        """Create prediction image set from dictionary serialization.
+
+        Parameters
+        ----------
+        doc : dict
+            Dictionary serialization of a prediction image set
+
+        Returns
+        -------
+        PredictionImageSet
+        """
+        return PredictionImageSet(doc['input'], doc['outputs'])
+
+    def to_dict(self):
+        """Convert the prediction image set to a dictionary.
+
+        Returns
+        -------
+        dict
+        """
+        return {'input' : self.input_image, 'outputs' : self.output_images}
 
 
 # ------------------------------------------------------------------------------
@@ -767,40 +791,41 @@ class DefaultPredictionImageSetManager(datastore.MongoDBStore):
     """Default data store backend for prediction image sets that uses MongoDB
     as storage backend.
     """
-    def __init__(self, mongo_collection, image_manager):
-        """Initialize the MongoDB collection and the image manager to retrieve
-        set images.
+    def __init__(self, mongo_collection):
+        """Initialize the MongoDB collection.
 
         Parameters
         ----------
         mongo_collection : Collection
             Collection in MongoDB storing image group information
-        image_manager : DefaultImageManager
-            Manager for image files
         """
         # Initialize the super class
         super(DefaultPredictionImageSetManager, self).__init__(mongo_collection)
-        # Initialize image manager reference
-        self.image_manager = image_manager
 
 
-    def create_object(self, name, filename):
-        """Create a prediction image set list from a given tar-file. For each
-        image in the tar-file an image resource will be created.
+    def create_object(self, name, image_sets):
+        """Create a prediction image set list.
 
         Parameters
         ----------
         name : string
             User-provided name for the image group.
-        filename : string
-            Location of local tar-file containing all images in the set
+        image_sets : list(PredictionImageSet)
+            List of prediction image sets
 
         Returns
         -------
         PredictionImageSetHandle
             Object handle for created prediction image set
         """
-        pass
+        # Create a new object identifier
+        identifier = str(uuid.uuid4()).replace('-','')
+        properties = {datastore.PROPERTY_NAME: name}
+        # Create the image group object and store it in the database before
+        # returning it.
+        obj = PredictionImageSetHandle(identifier, properties, image_sets)
+        self.insert_object(obj)
+        return obj
 
     def from_dict(self, document):
         """Create a prediction image set resource from a dictionary
@@ -814,23 +839,36 @@ class DefaultPredictionImageSetManager(datastore.MongoDBStore):
         Returns
         -------
         PredictionImageSetHandle
-            Handle for prediction image set
+            Handle for prediction image sets
         """
-        pass
+        return PredictionImageSetHandle(
+            str(document['_id']),
+            document['properties'],
+            [PredictionImageSet.from_dict(img) for img in document['images']],
+            timestamp=datetime.datetime.strptime(
+                document['timestamp'],
+                '%Y-%m-%dT%H:%M:%S.%f'
+            ),
+            is_active=document['active']
+        )
 
-    def to_dict(self, img_set):
-        """Create a dictionary serialization for a prediction image set.
+    def to_dict(self, img_sets):
+        """Create a dictionary serialization for a prediction image set handle.
 
         Parameters
         ----------
-        img_set : PredictionImageSet
+        img_sets : PredictionImageSetHandle
 
         Returns
         -------
         dict
             Dictionary serialization of the resource
         """
-        pass
+        # Get the basic Json object from the super class
+        json_obj = super(DefaultPredictionImageSetManager, self).to_dict(img_sets)
+        # Add list of image sets as Json array
+        json_obj['images'] = [img_set.to_dict() for img_set in img_sets.images]
+        return json_obj
 
 
 # ------------------------------------------------------------------------------

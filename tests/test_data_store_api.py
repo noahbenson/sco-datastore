@@ -12,7 +12,7 @@ import scodata.modelrun as prediction
 
 from scodata.experiment import TYPE_EXPERIMENT
 from scodata.funcdata import TYPE_FUNCDATA
-from scodata.image import TYPE_IMAGE, TYPE_IMAGE_GROUP
+from scodata.image import TYPE_IMAGE, TYPE_IMAGE_GROUP, TYPE_PREDICTION_IMAGE_SET
 from scodata.modelrun import TYPE_MODEL_RUN
 from scodata.subject import TYPE_SUBJECT
 
@@ -30,6 +30,7 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
         self.IMAGE_FILE = os.path.join(DATA_DIR, 'images/collapse.gif')
         self.NON_IMAGE_FILE = os.path.join(DATA_DIR, 'images/no-image.txt')
         self.IMAGE_GROUP_FILE = os.path.join(DATA_DIR, 'images/images.tar.gz')
+        self.PRED_IMAGE_SET_FILE = os.path.join(DATA_DIR, 'images/images.tar.gz')
         self.FMRI_FILE = os.path.join(DATA_DIR, 'fmris/data.mgz')
         m = mongo.MongoDBFactory(db_name='scotest')
         db = m.get_database()
@@ -426,6 +427,40 @@ class TestSCODataStoreAPIMethods(unittest.TestCase):
                 {datastore.PROPERTY_NAME : 'Some Name'}
             )
         )
+
+    def test_prediction_image_sets_api(self):
+        """Test all prediction image set related methods of API."""
+        # Create subject and image group and experiment
+        subject = self.api.subjects_create(self.SUBJECT_FILE)
+        img_grp = self.api.images_create(self.IMAGE_GROUP_FILE)
+        experiment = self.api.experiments_create(subject.identifier, img_grp.identifier, {'name':'Name'})
+        model_run = self.api.experiments_predictions_create(experiment.identifier, 'Model', [], 'Name')
+        model_run = self.api.experiments_predictions_update_state_active(
+            experiment.identifier,
+            model_run.identifier
+        )
+        # Ensure that creating a prediction image set for unfinished run Raises
+        # an exception
+        with self.assertRaises(ValueError):
+            img_sets = self.api.experiments_predictions_image_set_create(
+                experiment.identifier,
+                model_run.identifier,
+                self.PRED_IMAGE_SET_FILE
+            )
+        # Set state to success
+        model_run = self.api.experiments_predictions_update_state_success(
+            experiment.identifier,
+            model_run.identifier,
+            self.FMRI_FILE
+        )
+        # Create prediction image set collection from file
+        img_sets = self.api.experiments_predictions_image_set_create(
+            experiment.identifier,
+            model_run.identifier,
+            self.PRED_IMAGE_SET_FILE
+        )
+        # Ensure that the created object is an prediction image set handle
+        self.assertEquals(img_sets.type, TYPE_PREDICTION_IMAGE_SET)
 
     def test_subjects_api(self):
         """Test all subject related methods of API."""

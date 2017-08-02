@@ -99,6 +99,7 @@ class SCODataStore(object):
         self.funcdata = funcdata.DefaultFunctionalDataManager(db.funcdata, funcdata_dir)
         self.images = image.DefaultImageManager(db.images, image_files_dir)
         self.image_groups = image.DefaultImageGroupManager(db.imagegroups, image_groups_dir, self.images)
+        self.prediction_images = image.DefaultPredictionImageSetManager(db.predimages)
         self.predictions = modelrun.DefaultModelRunManager(db.predictions, predictions_dir)
         self.subjects = subject.DefaultSubjectManager(db.subjects, subjects_dir)
 
@@ -553,6 +554,63 @@ class SCODataStore(object):
             return None
         # Return model run object
         return model_run
+
+    def experiments_predictions_image_set_create(self, experiment_id, run_id, filename):
+        """Create a prediction image set from a given tar archive that was
+        produced as the result of a successful model run.
+
+        Returns None if the specified model run does not exist or did not
+        finish successfully. Raises a ValueError if the given file is invalid or
+        model run.
+
+        Parameters
+        ----------
+        experiment_id : string
+            Unique experiment identifier
+        run_id : string
+            Unique model run identifier
+        filename : string
+            Path to uploaded image set archive file
+
+        Returns
+        -------
+        PredictionImageSetHandle
+            Handle for new prediction image set collection
+        """
+        # Ensure that the model run exists and is in state SUCCESS
+        model_run = self.experiments_predictions_get(experiment_id, run_id)
+        if model_run is None:
+            return None
+        if not model_run.state.is_success:
+            raise ValueError('invalid run state: ' + str(model_run.state))
+        # Check if the file is a valid tar archive (based on suffix).
+        suffix = get_filename_suffix(filename, ARCHIVE_SUFFIXES)
+        if suffix is None:
+            # Not a valid file suffix
+            raise ValueError('invalid file suffix: ' + os.path.basename(os.path.normpath(filename)))
+        # Unpack the file to a temporary folder .
+        temp_dir = tempfile.mkdtemp()
+        try:
+            tf = tarfile.open(name=filename, mode='r')
+            tf.extractall(path=temp_dir)
+        except (tarfile.ReadError, IOError) as err:
+            # Clean up in case there is an error during extraction
+            shutil.rmtree(temp_dir)
+            raise ValueError(str(err))
+        # The list of prediction image sets
+        image_sets = []
+
+        # Parse the CSV file. For each image file use:
+        # img_obj = self.images.create_object(img_filename)
+        # to create an image file object in the database.
+
+        # Use file name as default object name
+        name = os.path.basename(os.path.normpath(filename))[:-len(suffix)]
+        # Create prediction image set
+        img_set = self.prediction_images.create_object(name, image_sets)
+        # Delete the temporary folder
+        shutil.rmtree(temp_dir)
+        return img_set
 
     def experiments_predictions_list(self, experiment_id, limit=-1, offset=-1):
         """List of all predictions for given experiment.
