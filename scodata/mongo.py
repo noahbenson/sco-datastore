@@ -11,19 +11,22 @@ class MongoDBFactory(object):
     """Factory pattern to establish connection to default mongo database used
     by the current implementation of the SCO Web API.
     """
-    def __init__(self, db_name='scoserv'):
+    def __init__(self, db_name='scoserv', db_uri='localhost'):
         """Initialize the database name.
 
         Parameters
         ----------
         db_name : string, optional
             Name of the database (default: scoserv)
+        db_uri : string, optional
+            URI of the database (default: localhost)
         """
         self.db_name = db_name
+        self.db_uri = db_uri
 
     def drop_database(self):
         """Drop the database the factory connects to."""
-        MongoClient().drop_database(self.db_name)
+        MongoClient(self.db_uri).drop_database(self.db_name)
 
     def get_database(self):
         """Create a new default mongo database object.
@@ -33,4 +36,4 @@ class MongoDBFactory(object):
         MongoDb.database
             MongoDB database object
         """
-        return MongoClient()[self.db_name]
+        return MongoClient(self.db_uri)[self.db_name]
