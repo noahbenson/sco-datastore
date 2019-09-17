@@ -4,6 +4,7 @@ each process. The MongoDBFactory is used as a central place to establish
 connection to MongoDB for the SCO Data Store and the SCO Engine.
 """
 
+import os
 from pymongo import MongoClient
 
 
@@ -11,7 +12,7 @@ class MongoDBFactory(object):
     """Factory pattern to establish connection to default mongo database used
     by the current implementation of the SCO Web API.
     """
-    def __init__(self, db_name='scoserv', db_uri='localhost'):
+    def __init__(self, db_name='scoserv', db_uri=None):
         """Initialize the database name.
 
         Parameters
@@ -19,9 +20,12 @@ class MongoDBFactory(object):
         db_name : string, optional
             Name of the database (default: scoserv)
         db_uri : string, optional
-            URI of the database (default: localhost)
+            URI of the database (default: None); if None is given then
+            either the MONGODB_URI environment name or localhost is used.
         """
         self.db_name = db_name
+        if db_uri is None:
+            db_uri = os.environ.get('MONGODB_URI', 'localhost')
         self.db_uri = db_uri
 
     def drop_database(self):
